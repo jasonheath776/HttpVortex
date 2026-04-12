@@ -1,0 +1,332 @@
+{
+  "name": "http-vortex-vscode",
+  "displayName": "HTTP Vortex",
+  "description": "Text-first HTTP runbook editor for VS Code",
+  "version": "0.1.0",
+  "publisher": "neon",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "http-vortex",
+          "title": "HTTP Vortex",
+          "icon": "./images/icon-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "http-vortex": [
+        {
+          "id": "httpVortex.requestsView",
+          "name": "Requests",
+          "type": "tree"
+        },
+        {
+          "id": "httpVortex.recentFilesView",
+          "name": "Recent Files",
+          "type": "tree"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "httpVortex.requestsView",
+        "contents": "Open an [.http file](command:workbench.action.quickOpen) to start.\n\n[Run All Requests](command:httpVortex.runAll)\n[Show Results](command:httpVortex.showResults)"
+      }
+    ],
+    "languages": [
+      {
+        "id": "http",
+        "aliases": [
+          "HTTP",
+          "http"
+        ],
+        "extensions": [
+          ".http",
+          ".rest"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "http",
+        "scopeName": "source.http",
+        "path": "./syntaxes/http.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "httpVortex.runAll",
+        "title": "HTTP Vortex: Run All Requests",
+        "icon": "$(play)"
+      },
+      {
+        "command": "httpVortex.runCurrent",
+        "title": "HTTP Vortex: Run Current Request",
+        "icon": "$(play)"
+      },
+      {
+        "command": "httpVortex.runFromHere",
+        "title": "HTTP Vortex: Run All from Here"
+      },
+      {
+        "command": "httpVortex.showResults",
+        "title": "HTTP Vortex: Show Results Panel",
+        "icon": "$(output)"
+      },
+      {
+        "command": "httpVortex.clearVariables",
+        "title": "HTTP Vortex: Clear Variables"
+      },
+      {
+        "command": "httpVortex.exportPostman",
+        "title": "HTTP Vortex: Export to Postman Collection",
+        "icon": "$(export)"
+      },
+      {
+        "command": "httpVortex.importPostman",
+        "title": "HTTP Vortex: Import from Postman Collection",
+        "icon": "$(import)"
+      },
+      {
+        "command": "httpVortex.generateMarkdown",
+        "title": "HTTP Vortex: Generate Markdown Report",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "httpVortex.generateCode",
+        "title": "HTTP Vortex: Generate Code (C#/JavaScript/Java)",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "httpVortex.manageAuthProfiles",
+        "title": "HTTP Vortex: Manage Auth Profiles"
+      },
+      {
+        "command": "httpVortex.loadEnvironment",
+        "title": "HTTP Vortex: Load Environment File"
+      },
+      {
+        "command": "httpVortex.selectEnvironment",
+        "title": "HTTP Vortex: Select Environment"
+      },
+      {
+        "command": "httpVortex.createEnvironment",
+        "title": "HTTP Vortex: Create Environment File"
+      },
+      {
+        "command": "httpVortex.showEnvironmentVars",
+        "title": "HTTP Vortex: Show Environment Variables"
+      },
+      {
+        "command": "httpVortex.showHistory",
+        "title": "HTTP Vortex: Show Request History"
+      },
+      {
+        "command": "httpVortex.clearHistory",
+        "title": "HTTP Vortex: Clear Request History"
+      },
+      {
+        "command": "httpVortex.enableParallel",
+        "title": "HTTP Vortex: Enable Parallel Execution",
+        "icon": "$(type-hierarchy-sub)"
+      },
+      {
+        "command": "httpVortex.disableParallel",
+        "title": "HTTP Vortex: Disable Parallel Execution",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "httpVortex.showHelp",
+        "title": "HTTP Vortex: Show Reference / Help",
+        "icon": "$(question)"
+      },
+      {
+        "command": "httpVortex.openRecentFile",
+        "title": "HTTP Vortex: Open Recent File"
+      },
+      {
+        "command": "httpVortex.clearRecentFiles",
+        "title": "HTTP Vortex: Clear Recent Files",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "httpVortex.runAll",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "httpVortex.httpFileOpen"
+      },
+      {
+        "command": "httpVortex.runCurrent",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "httpVortex.httpFileOpen"
+      },
+      {
+        "command": "httpVortex.generateMarkdown",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "httpVortex.httpFileOpen"
+      },
+      {
+        "command": "httpVortex.generateCode",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "httpVortex.httpFileOpen"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "httpVortex.clearRecentFiles",
+          "when": "view == httpVortex.recentFilesView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "httpVortex.openRecentFile",
+          "when": "viewItem == recentFile",
+          "group": "inline"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "httpVortex.runAll",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@1"
+        },
+        {
+          "command": "httpVortex.showResults",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@2"
+        },
+        {
+          "command": "httpVortex.generateMarkdown",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@3"
+        },
+        {
+          "command": "httpVortex.generateCode",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@4"
+        },
+        {
+          "command": "httpVortex.enableParallel",
+          "when": "httpVortex.httpFileOpen && !httpVortex.parallelMode",
+          "group": "navigation@5"
+        },
+        {
+          "command": "httpVortex.disableParallel",
+          "when": "httpVortex.httpFileOpen && httpVortex.parallelMode",
+          "group": "navigation@5"
+        },
+        {
+          "command": "httpVortex.showHelp",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@6"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "httpVortex.runCurrent",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@1"
+        },
+        {
+          "command": "httpVortex.runAll",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@2"
+        },
+        {
+          "command": "httpVortex.runFromHere",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@3"
+        },
+        {
+          "command": "httpVortex.exportPostman",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@4"
+        },
+        {
+          "command": "httpVortex.importPostman",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@5"
+        },
+        {
+          "command": "httpVortex.generateCode",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@6"
+        },
+        {
+          "command": "httpVortex.generateMarkdown",
+          "when": "httpVortex.httpFileOpen",
+          "group": "httpVortex@7"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "httpVortex.runFromHere",
+          "when": "httpVortex.httpFileOpen"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "HTTP Vortex",
+      "properties": {
+        "httpVortex.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CodeLens for Run and Run All from Here"
+        },
+        "httpVortex.timeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "Request timeout in milliseconds"
+        },
+        "httpVortex.followRedirects": {
+          "type": "boolean",
+          "default": true,
+          "description": "Follow HTTP redirects"
+        },
+        "httpVortex.validateSSL": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate SSL certificates"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "lodash": "^4.17.21"
+  }
+}

@@ -1,0 +1,91 @@
+# Example HTTP Runbook
+
+This file demonstrates the syntax and features of Neon Playbook for VS Code.
+
+# Global variables - defined at the top, available to all requests
+@baseUrl = https://jsonplaceholder.typicode.com
+@userId = 1
+
+### Get a Single Post
+# Simple GET request with variable interpolation
+GET {{baseUrl}}/posts/{{userId}}
+Accept: application/json
+
+### Create a New Post
+# POST request with JSON body
+POST {{baseUrl}}/posts
+Content-Type: application/json
+
+{
+  "title": "My New Post",
+  "body": "This is the content of my post",
+  "userId": {{userId}}
+}
+
+# Capture the ID of the newly created post
+@newPostId = res.data.id
+> debug(@newPostId)
+
+### Get the Created Post
+# Use the captured ID from the previous request
+GET {{baseUrl}}/posts/{{newPostId}}
+Accept: application/json
+
+### Update the Post
+# PATCH request to update fields
+PATCH {{baseUrl}}/posts/{{newPostId}}
+Content-Type: application/json
+
+{
+  "title": "Updated Title"
+}
+
+### Delete the Post
+# DELETE request
+DELETE {{baseUrl}}/posts/{{newPostId}}
+
+### Example with Line Continuation
+# You can split long URLs across multiple lines using backslash
+GET {{baseUrl}}/posts\
+    ?userId={{userId}}\
+    &_limit=5
+Accept: application/json
+
+### Example with Multiple Headers
+GET {{baseUrl}}/posts/1
+Accept: application/json
+Cache-Control: no-cache
+User-Agent: Neon-Playbook/1.0
+
+---
+
+## Authentication Example
+
+# This example shows a typical login + authenticated request flow
+
+@authUrl = https://reqres.in/api
+
+### Login Request
+POST {{authUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "eve.holt@reqres.in",
+  "password": "cityslicka"
+}
+
+@authToken = res.data.token
+> debug(@authToken)
+
+### Get Users with Auth Token
+GET {{authUrl}}/users?page=1
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+@firstUserId = res.data.data[0].id
+> debug(@firstUserId)
+
+### Get Specific User
+GET {{authUrl}}/users/{{firstUserId}}
+Authorization: Bearer {{authToken}}
+Accept: application/json

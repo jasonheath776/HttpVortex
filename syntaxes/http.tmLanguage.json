@@ -1,0 +1,109 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "HTTP",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#variables"
+    },
+    {
+      "include": "#separators"
+    },
+    {
+      "include": "#request-line"
+    },
+    {
+      "include": "#headers"
+    },
+    {
+      "include": "#response-handlers"
+    },
+    {
+      "include": "#json-body"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.number-sign.http",
+      "match": "^#.*$"
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.declaration.http",
+          "match": "^@([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*(.*)$",
+          "captures": {
+            "1": {
+              "name": "variable.other.readwrite.http"
+            },
+            "2": {
+              "name": "string.unquoted.http"
+            }
+          }
+        },
+        {
+          "name": "variable.other.substitution.http",
+          "match": "\\{\\{([a-zA-Z_][a-zA-Z0-9_]*)\\}\\}",
+          "captures": {
+            "1": {
+              "name": "variable.other.readwrite.http"
+            }
+          }
+        }
+      ]
+    },
+    "separators": {
+      "name": "keyword.control.separator.http",
+      "match": "^###.*$"
+    },
+    "request-line": {
+      "name": "meta.request-line.http",
+      "match": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\\s+(.*)$",
+      "captures": {
+        "1": {
+          "name": "keyword.other.http-method.http"
+        },
+        "2": {
+          "name": "string.other.url.http"
+        }
+      }
+    },
+    "headers": {
+      "name": "meta.header.http",
+      "match": "^([A-Za-z-]+):\\s*(.*)$",
+      "captures": {
+        "1": {
+          "name": "entity.name.tag.header.http"
+        },
+        "2": {
+          "name": "string.unquoted.header-value.http"
+        }
+      }
+    },
+    "response-handlers": {
+      "name": "variable.other.response-handler.http",
+      "match": "^@([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*(res\\.[a-zA-Z0-9_.\\[\\]]+)$",
+      "captures": {
+        "1": {
+          "name": "variable.other.readwrite.http"
+        },
+        "2": {
+          "name": "support.function.response.http"
+        }
+      }
+    },
+    "json-body": {
+      "name": "meta.embedded.block.json",
+      "begin": "^\\{",
+      "end": "^\\}",
+      "patterns": [
+        {
+          "include": "source.json"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.http"
+}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+  <!-- Clockwise spiral vortex: 2.25 turns, outer (r=10) to center -->
+  <path d="M12 2 C17.1 2.4 20.8 7 20.3 12 C19.9 16.1 16.1 19.2 12 18.7 C8.8 18.3 6.5 15.2 7 12 C7.4 9.7 9.8 8.2 12 8.7 C13.3 9 14.3 10.8 13.7 12 C13.5 12.4 12.2 11.6 12 12"/>
+  <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+</svg>
