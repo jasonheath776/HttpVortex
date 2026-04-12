@@ -1,6 +1,6 @@
 {
   "name": "http-vortex",
-  "displayName": "HTTP Vortex",
+  "displayName": "HTTP Vortex Runner",
   "description": "Text-first HTTP runbook editor for VS Code",
   "version": "0.1.1",
   "publisher": "jheath",
