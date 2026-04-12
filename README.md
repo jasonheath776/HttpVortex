@@ -1,8 +1,8 @@
-# Neon Playbook for VS Code
+# HTTP Vortex for VS Code
 
 A text-first HTTP runbook editor for Visual Studio Code. Write HTTP requests in a simple, readable format, execute them sequentially, and pass data between requests using variables.
 
-![Neon Playbook](https://via.placeholder.com/800x400?text=Neon+Playbook+Screenshot)
+[![GitHub](https://img.shields.io/badge/GitHub-HttpVortex-blue?logo=github)](https://github.com/jasonheath776/HttpVortex)
 
 ## Features
 
@@ -10,8 +10,13 @@ A text-first HTTP runbook editor for Visual Studio Code. Write HTTP requests in 
 - **Sequential Execution**: Requests run in order, allowing you to chain dependent calls
 - **Variable Interpolation**: Capture values from responses and use them in subsequent requests
 - **Variable Management**: Define global variables and extract values from responses
+- **Parallel Execution**: Toggle parallel mode to run all requests concurrently
 - **Debug Support**: Use `> debug(@varName)` or `> debug(res.data.field)` to inspect values
-- **Postman Export**: Export your runbooks to Postman collections
+- **Code Generation**: Generate C#, JavaScript, or Java code from your requests
+- **Postman Integration**: Import and export Postman collections
+- **Environment Support**: Load and switch between `.env` environment files
+- **Auth Profiles**: Create and reuse authentication profiles
+- **Request History**: View and replay previous requests
 - **Clean UI**: Results displayed in a dedicated panel with collapsible sections
 
 ## Syntax
@@ -76,7 +81,7 @@ Content-Type: application/json
 
 1. Place your cursor inside a request block
 2. Press `Ctrl+Alt+R` (or `Cmd+Alt+R` on Mac)
-3. Or right-click and select "Neon Playbook: Run Current Request"
+3. Or right-click and select "HTTP Vortex: Run Current Request"
 
 ### View Results
 
@@ -93,23 +98,25 @@ Content-Type: application/json
 - **Clear Variables**: Reset all runtime variables
 - **Export to Postman Collection**: Export requests to a Postman collection file
 - **Import from Postman Collection**: Import a Postman collection into .http format
-- **Generate Markdown Report**: Create a detailed markdown report of request results
+- **Generate Markdown Report** (`Ctrl+Shift+M` / `Cmd+Shift+M`): Create a detailed markdown report of request results
+- **Generate Code** (`Ctrl+Shift+C` / `Cmd+Shift+C`): Generate C#, JavaScript, or Java code from the current request
 - **Manage Auth Profiles**: Create and manage reusable authentication profiles
 - **Load Environment File**: Load variables from a .env file
 - **Select Environment**: Switch between loaded environments
 - **Create Environment File**: Create a new .env file template
+- **Enable/Disable Parallel Execution**: Toggle between sequential and parallel request execution
 - **Show Environment Variables**: Display current environment variables
 - **Show Request History**: View and replay previous requests
 - **Clear Request History**: Delete request history
 
 ## Configuration
 
-Access settings via `File > Preferences > Settings` and search for "Neon Playbook":
+Access settings via `File > Preferences > Settings` and search for "HTTP Vortex":
 
-- `neonPlaybook.enableCodeLens`: Enable CodeLens markers above requests (default: true)
-- `neonPlaybook.timeout`: Request timeout in milliseconds (default: 30000)
-- `neonPlaybook.followRedirects`: Follow HTTP redirects (default: true)
-- `neonPlaybook.validateSSL`: Validate SSL certificates (default: true)
+- `httpVortex.enableCodeLens`: Enable CodeLens markers above requests (default: `true`)
+- `httpVortex.timeout`: Request timeout in milliseconds (default: `30000`)
+- `httpVortex.followRedirects`: Follow HTTP redirects (default: `true`)
+- `httpVortex.validateSSL`: Validate SSL certificates (default: `true`)
 
 ## Installation
 
@@ -117,8 +124,8 @@ Access settings via `File > Preferences > Settings` and search for "Neon Playboo
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd neon-playbook-vscode
+   git clone https://github.com/jasonheath776/HttpVortex.git
+   cd HttpVortex/http-vortex-vscode
    ```
 
 2. Install dependencies:
