@@ -3,7 +3,17 @@
   "displayName": "HTTP Vortex",
   "description": "Text-first HTTP runbook editor for VS Code",
   "version": "0.1.0",
-  "publisher": "neon",
+  "publisher": "jheath",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jasonheath776/HttpVortex.git"
+  },
+  "homepage": "https://github.com/jasonheath776/HttpVortex#readme",
+  "bugs": {
+    "url": "https://github.com/jasonheath776/HttpVortex/issues"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
