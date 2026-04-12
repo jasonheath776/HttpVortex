@@ -20,7 +20,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onLanguage:http"],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {

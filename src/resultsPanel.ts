@@ -25,7 +25,7 @@ export class ResultsPanel {
 
     // Otherwise, create a new panel
     const panel = vscode.window.createWebviewPanel(
-      'neonPlaybookResults',
+      'httpVortexResults',
       'HTTP Results',
       column,
       {

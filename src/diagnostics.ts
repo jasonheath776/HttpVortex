@@ -151,7 +151,7 @@ export function validateHttpDocument(document: vscode.TextDocument): vscode.Diag
  * Returns the collection so the caller can dispose it on deactivation.
  */
 export function registerHttpDiagnostics(context: vscode.ExtensionContext): vscode.DiagnosticCollection {
-  const collection = vscode.languages.createDiagnosticCollection('neonPlaybook');
+  const collection = vscode.languages.createDiagnosticCollection('httpVortex');
 
   function updateDiagnostics(document: vscode.TextDocument) {
     if (document.languageId !== 'http') {

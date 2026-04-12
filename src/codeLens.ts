@@ -18,7 +18,7 @@ export class HttpCodeLensProvider implements vscode.CodeLensProvider {
       return [];
     }
 
-    const config = vscode.workspace.getConfiguration('neonPlaybook');
+    const config = vscode.workspace.getConfiguration('httpVortex');
     if (!config.get('enableCodeLens', true)) {
       console.log('CodeLens disabled in settings');
       return [];

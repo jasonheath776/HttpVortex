@@ -208,7 +208,7 @@ export class HelpPanel {
       return;
     }
     const panel = vscode.window.createWebviewPanel(
-      'neonPlaybookHelp',
+      'httpVortexHelp',
       'HTTP Vortex — Reference',
       vscode.ViewColumn.Beside,
       { enableScripts: false, retainContextWhenHidden: true }
