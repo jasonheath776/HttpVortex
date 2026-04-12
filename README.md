@@ -15,7 +15,8 @@ A text-first HTTP runbook editor for Visual Studio Code. Write HTTP requests in 
 - **Code Generation**: Generate C#, JavaScript, or Java code from your requests
 - **Postman Integration**: Import and export Postman collections
 - **Environment Support**: Load and switch between `.env` environment files
-- **Auth Profiles**: Create and reuse authentication profiles
+- **Auth Profiles & Secrets**: Manage reusable auth profiles (Bearer, Basic, API Key, OAuth2, OAuth2 Auth Code) and named secrets via a split-pane webview panel — all sensitive values stored in the OS keychain
+- **OAuth2 Auth Code Flow**: Browser-based sign-in with a local loopback callback server; tokens stored automatically in the OS keychain
 - **Request History**: View and replay previous requests
 - **Clean UI**: Results displayed in a dedicated panel with collapsible sections
 
@@ -100,7 +101,8 @@ Content-Type: application/json
 - **Import from Postman Collection**: Import a Postman collection into .http format
 - **Generate Markdown Report** (`Ctrl+Shift+M` / `Cmd+Shift+M`): Create a detailed markdown report of request results
 - **Generate Code** (`Ctrl+Shift+C` / `Cmd+Shift+C`): Generate C#, JavaScript, or Java code from the current request
-- **Manage Auth Profiles**: Create and manage reusable authentication profiles
+- **Manage Auth Profiles** (`$(shield)` toolbar button): Open the credentials panel to create and manage auth profiles (Bearer, Basic, API Key, OAuth2, OAuth2 Auth Code)
+- **Manage Secrets** (`$(lock)` toolbar button): Open the credentials panel to manage named secrets available as `{{secretName}}` in requests
 - **Load Environment File**: Load variables from a .env file
 - **Select Environment**: Switch between loaded environments
 - **Create Environment File**: Create a new .env file template
@@ -108,6 +110,45 @@ Content-Type: application/json
 - **Show Environment Variables**: Display current environment variables
 - **Show Request History**: View and replay previous requests
 - **Clear Request History**: Delete request history
+
+## Authentication
+
+HTTP Vortex includes a split-pane **Credentials Panel** (accessible from the editor toolbar) for managing both auth profiles and secrets.
+
+### Auth Profile Types
+
+| Type | Description |
+|------|-------------|
+| **Bearer Token** | Injects `Authorization: Bearer {{token}}` |
+| **Basic Auth** | Injects `Authorization: Basic {base64}` from username + password |
+| **API Key** | Injects a custom header (e.g. `X-API-Key: value`) |
+| **OAuth 2.0** | Manually-managed access token stored in keychain |
+| **OAuth2 Auth Code** | Browser-based sign-in flow with local loopback callback server |
+
+### OAuth2 Auth Code Flow
+
+1. Create a profile, select **OAuth2 Auth Code (browser sign-in)**, and fill in:
+   - **Authorize URL** — your IdP's authorization endpoint
+   - **Token URL** — your IdP's token endpoint
+   - **Client ID** — your registered client identifier
+   - **Scope** — space-separated scopes (optional)
+   - **Redirect Port** — local port for the callback (default `49152`; must be free and registered with your IdP as `http://localhost:PORT/callback`)
+   - **Client Secret** — stored in the OS keychain (optional for public clients)
+2. Save the profile, then click **Sign In** — your browser opens the authorization page.
+3. After you consent, the browser is redirected to `http://localhost:PORT/callback`, the code is exchanged for tokens, and the access token is stored in the OS keychain.
+4. The profile shows **✓ Signed in** and the token is injected automatically on every run.
+
+### Named Secrets
+
+Secrets are stand-alone key/value pairs stored in the OS keychain. Reference them anywhere in requests as `{{secretName}}`.
+
+Variable precedence (highest wins): global `@vars` > environment `.env` vars > secrets.
+
+### Security
+
+- All sensitive values (tokens, passwords, API keys, client secrets) live exclusively in `vscode.SecretStorage`, backed by Windows Credential Manager / macOS Keychain / libsecret.
+- The webview panel **never** receives secret values — only a boolean `hasToken` flag is sent for UI display.
+- The OAuth2 callback server binds **only** to `127.0.0.1` and includes CSRF `state` validation.
 
 ## Configuration
 

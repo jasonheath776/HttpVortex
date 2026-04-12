@@ -92,12 +92,34 @@ grant_type=client_credentials&client_id=my-client&client_secret=my-secret&scope=
     note: 'Must use application/x-www-form-urlencoded — not JSON. The captured token is injected into all following requests. For a GUI-driven alternative with saved credentials, use Manage Auth Profiles.',
   },
   {
-    title: 'Auth Profiles & secret storage',
-    content: `Use "Manage Auth Profiles" (command palette) to create reusable credential sets for Bearer, Basic, API Key, and OAuth2 flows. The active profile's token is automatically injected as {{token}} before every run.
+    title: 'Auth Profiles & Secrets',
+    content: `Click the shield (\u24C8) or lock button in the editor toolbar to open the Credentials Panel — a split-pane webview for managing auth profiles and named secrets.
 
-🔒 Secret storage: tokens, passwords, and API keys are stored in VS Code's SecretStorage API, which is backed by the OS keychain (Windows Credential Manager, macOS Keychain, libsecret on Linux). They are never written to disk in plain text and are encrypted at rest by the operating system.
+Auth profile types:
+  • Bearer Token  — injects Authorization: Bearer {{token}}
+  • Basic Auth    — injects Authorization: Basic {base64} from username + password
+  • API Key       — injects a custom header (e.g. X-API-Key)
+  • OAuth 2.0     — manually-managed access token
+  • OAuth2 Auth Code — browser sign-in flow (see the dedicated section below)
 
-Only non-sensitive metadata (profile name, type, username, header name) is stored in VS Code's settings store.`,
+Named secrets are stand-alone key/value pairs referenced as {{secretName}} in any request. Variable precedence: global @vars > .env vars > secrets.
+
+Security: all sensitive values are stored in VS Code's SecretStorage API (OS keychain — Windows Credential Manager, macOS Keychain, libsecret). The webview never receives secret values; only metadata flows to the UI.`,
+  },
+  {
+    title: 'OAuth2 Auth Code flow (browser sign-in)',
+    content: 'Create an Auth Code profile, fill in the IdP URLs, Client ID, and optional scope, then click Sign In. HTTP Vortex opens your browser, starts a local callback server, exchanges the code for tokens, and stores everything in the OS keychain automatically.',
+    body: `# Profile settings
+Authorize URL : https://login.example.com/oauth2/authorize
+Token URL     : https://login.example.com/oauth2/token
+Client ID     : my-app-client-id
+Scope         : openid profile email   (optional)
+Redirect Port : 49152                  (must match your IdP redirect URI)
+Client Secret : (stored in OS keychain, optional for public clients)
+
+# Redirect URI to register with your IdP
+http://localhost:49152/callback`,
+    note: 'After sign-in the profile shows \u2713 Signed in. The access token is injected automatically on every Run. Use Sign Out to clear stored tokens.',
   },
   {
     title: 'Chaining requests',
@@ -181,7 +203,10 @@ Ctrl+Shift+C       Generate Code (C# / JS / Java)`,
 ⊞ Show Results       Open the results panel
 📄 Generate Markdown  Export results as a Markdown report
 {} Generate Code      Export as C# / JavaScript / Java
-⊞ Parallel toggle    Enable / disable concurrent execution`,
+⊞ Parallel toggle    Enable / disable concurrent execution
+🛡 Auth Profiles      Open the Credentials Panel (Auth Profiles tab)
+🔒 Secrets            Open the Credentials Panel (Secrets tab)
+? Help               Open this reference panel`,
   },
   {
     title: 'Results panel buttons',
