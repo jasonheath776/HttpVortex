@@ -2,7 +2,7 @@
   "name": "http-vortex-vscode",
   "displayName": "HTTP Vortex",
   "description": "Text-first HTTP runbook editor for VS Code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "jheath",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -119,7 +119,13 @@
       },
       {
         "command": "httpVortex.manageAuthProfiles",
-        "title": "HTTP Vortex: Manage Auth Profiles"
+        "title": "HTTP Vortex: Manage Auth Profiles",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "httpVortex.manageSecrets",
+        "title": "HTTP Vortex: Manage Secrets",
+        "icon": "$(lock)"
       },
       {
         "command": "httpVortex.loadEnvironment",
@@ -243,9 +249,19 @@
           "group": "navigation@5"
         },
         {
-          "command": "httpVortex.showHelp",
+          "command": "httpVortex.manageAuthProfiles",
           "when": "httpVortex.httpFileOpen",
           "group": "navigation@6"
+        },
+        {
+          "command": "httpVortex.manageSecrets",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@7"
+        },
+        {
+          "command": "httpVortex.showHelp",
+          "when": "httpVortex.httpFileOpen",
+          "group": "navigation@8"
         }
       ],
       "editor/context": [

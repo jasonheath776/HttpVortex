@@ -18,6 +18,8 @@ import { buildMarkdownReport } from './markdown';
 import { registerSnippetsProvider } from './snippetsProvider';
 import { HelpPanel } from './helpPanel';
 import { RecentFilesProvider } from './recentFilesProvider';
+import { SecretsManager } from './secretsManager';
+import { CredentialsPanel } from './credentialsPanel';
 
 let currentVariables: Record<string, unknown> = {};
 let resultsPanel: ResultsPanel | undefined;
@@ -25,6 +27,7 @@ let parallelMode = false;
 let authManager: AuthProfileManager;
 let historyManager: RequestHistoryManager;
 let envManager: EnvironmentManager;
+let secretsManager: SecretsManager;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('HTTP Vortex extension activated');
@@ -34,6 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
   authManager = new AuthProfileManager(context);
   historyManager = new RequestHistoryManager(context);
   envManager = new EnvironmentManager();
+  secretsManager = new SecretsManager(context);
 
   // Recent files tree view
   const recentFilesProvider = new RecentFilesProvider(context);
@@ -184,8 +188,14 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('httpVortex.manageAuthProfiles', async () => {
-      await authManager.manageProfiles();
+    vscode.commands.registerCommand('httpVortex.manageAuthProfiles', () => {
+      CredentialsPanel.createOrShow(authManager, secretsManager, 'auth');
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('httpVortex.manageSecrets', () => {
+      CredentialsPanel.createOrShow(authManager, secretsManager, 'secrets');
     })
   );
 
@@ -257,9 +267,10 @@ async function runAllRequests(context: vscode.ExtensionContext) {
       return;
     }
 
-    // Merge environment variables with global variables (global vars take precedence)
+    // Merge secrets < env vars < global vars (later spread wins)
+    const secrets = await secretsManager.getAllSecrets();
     const envVars = envManager.getAllVariables();
-    currentVariables = { ...envVars, ...globalVars };
+    currentVariables = { ...secrets, ...envVars, ...globalVars };
     
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
     resultsPanel.clearResults();
@@ -363,8 +374,11 @@ async function runCurrentRequest(context: vscode.ExtensionContext) {
       return;
     }
 
-    // Use current variables or parse globals
-    currentVariables = Object.keys(currentVariables).length > 0 ? currentVariables : { ...globalVars };
+    // Use current variables or build from secrets + globals
+    if (Object.keys(currentVariables).length === 0) {
+      const secrets = await secretsManager.getAllSecrets();
+      currentVariables = { ...secrets, ...globalVars };
+    }
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
 
     const config = vscode.workspace.getConfiguration('httpVortex');
@@ -553,7 +567,8 @@ async function runFromHere(context: vscode.ExtensionContext, startLine: number) 
       return;
     }
 
-    currentVariables = { ...globalVars };
+    const secrets = await secretsManager.getAllSecrets();
+    currentVariables = { ...secrets, ...globalVars };
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
     resultsPanel.clearResults();
 

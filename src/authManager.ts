@@ -6,17 +6,58 @@
  */
 
 import * as vscode from 'vscode';
+import { runAuthCodeFlow } from './oauth2CodeFlow';
 
 export interface AuthProfile {
   name: string;
-  type: 'bearer' | 'basic' | 'apikey' | 'oauth2';
+  type: 'bearer' | 'basic' | 'apikey' | 'oauth2' | 'authcode';
   // Non-secret
   username?: string;
   headerName?: string;
+  // authcode non-secret
+  authorizeUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  scope?: string;
+  redirectPort?: number;
   // Secret — only populated in memory after loadWithSecrets()
   token?: string;
   password?: string;
   apiKey?: string;
+  clientSecret?: string;
+  refreshToken?: string;
+  tokenExpiry?: number;
+}
+
+/** Public projection used by the credentials panel (no secrets). */
+export interface ProfileListItem {
+  name: string;
+  type: AuthProfile['type'];
+  username?: string;
+  headerName?: string;
+  authorizeUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  scope?: string;
+  redirectPort?: number;
+  /** authcode only — whether a valid access token is currently stored. */
+  hasToken?: boolean;
+}
+
+/** Input shape for creating / updating a profile via the credentials panel. */
+export interface ProfileSaveInput {
+  name: string;
+  type: AuthProfile['type'];
+  username?: string;
+  headerName?: string;
+  authorizeUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  scope?: string;
+  redirectPort?: number;
+  /** Generic secret value — stored as token / password / apiKey / clientSecret based on type.
+   *  Omit (or pass undefined) when editing to keep the existing secret. */
+  secret?: string;
 }
 
 /** Fields persisted to globalState (no secrets). */
@@ -25,6 +66,11 @@ interface AuthProfileMeta {
   type: AuthProfile['type'];
   username?: string;
   headerName?: string;
+  authorizeUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  scope?: string;
+  redirectPort?: number;
 }
 
 /** Fields stored in SecretStorage, serialised as JSON. */
@@ -32,6 +78,9 @@ interface AuthSecrets {
   token?: string;
   password?: string;
   apiKey?: string;
+  clientSecret?: string;
+  refreshToken?: string;
+  tokenExpiry?: number;
 }
 
 export class AuthProfileManager {
@@ -102,6 +151,132 @@ export class AuthProfileManager {
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
+
+  /** Returns profile metadata list (no secrets) for use by the credentials panel. */
+  getProfileList(): ProfileListItem[] {
+    return this.metas.map(m => ({
+      name: m.name, type: m.type, username: m.username, headerName: m.headerName,
+      authorizeUrl: m.authorizeUrl, tokenUrl: m.tokenUrl, clientId: m.clientId,
+      scope: m.scope, redirectPort: m.redirectPort,
+    }));
+  }
+
+  /** Like getProfileList but also checks SecretStorage for hasToken on authcode profiles. */
+  async getProfileListWithStatus(): Promise<ProfileListItem[]> {
+    const results: ProfileListItem[] = [];
+    for (const m of this.metas) {
+      const item: ProfileListItem = {
+        name: m.name, type: m.type, username: m.username, headerName: m.headerName,
+        authorizeUrl: m.authorizeUrl, tokenUrl: m.tokenUrl, clientId: m.clientId,
+        scope: m.scope, redirectPort: m.redirectPort,
+      };
+      if (m.type === 'authcode') {
+        const s = await this.loadSecrets(m.name);
+        item.hasToken = !!s.token;
+      }
+      results.push(item);
+    }
+    return results;
+  }
+
+  /** Create or update a profile. Returns an error string on failure, or undefined on success. */
+  async saveProfile(input: ProfileSaveInput, isNew: boolean): Promise<string | undefined> {
+    if (!input.name.trim()) { return 'Profile name is required.'; }
+
+    if (isNew) {
+      if (this.metas.find(m => m.name === input.name)) {
+        return `A profile named "${input.name}" already exists.`;
+      }
+      this.metas.push({
+        name: input.name, type: input.type,
+        username: input.username, headerName: input.headerName,
+        authorizeUrl: input.authorizeUrl, tokenUrl: input.tokenUrl,
+        clientId: input.clientId, scope: input.scope, redirectPort: input.redirectPort,
+      });
+      await this.saveMetas();
+    } else {
+      const meta = this.metas.find(m => m.name === input.name);
+      if (!meta) { return `Profile "${input.name}" not found.`; }
+      meta.type = input.type;
+      meta.username = input.username;
+      meta.headerName = input.headerName;
+      meta.authorizeUrl = input.authorizeUrl;
+      meta.tokenUrl = input.tokenUrl;
+      meta.clientId = input.clientId;
+      meta.scope = input.scope;
+      meta.redirectPort = input.redirectPort;
+      await this.saveMetas();
+    }
+
+    if (input.secret) {
+      // Always merge with existing secrets so stored tokens are preserved on config edits
+      const existing = await this.loadSecrets(input.name);
+      const secrets: AuthSecrets = { ...existing };
+      switch (input.type) {
+        case 'bearer':
+        case 'oauth2':   secrets.token        = input.secret; break;
+        case 'basic':    secrets.password     = input.secret; break;
+        case 'apikey':   secrets.apiKey       = input.secret; break;
+        case 'authcode': secrets.clientSecret = input.secret; break;
+      }
+      await this.saveSecrets(input.name, secrets);
+    }
+    return undefined;
+  }
+
+  /**
+   * Runs the OAuth2 Authorization Code flow for the named profile.
+   * Returns an error string on failure, or undefined on success.
+   */
+  async startAuthCodeFlow(name: string): Promise<string | undefined> {
+    const meta = this.metas.find(m => m.name === name);
+    if (!meta || meta.type !== 'authcode') {
+      return `Profile "${name}" is not an Auth Code profile.`;
+    }
+    if (!meta.authorizeUrl || !meta.tokenUrl || !meta.clientId) {
+      return 'Save the Authorize URL, Token URL, and Client ID before signing in.';
+    }
+    const secrets = await this.loadSecrets(name);
+    if (!secrets.clientSecret) {
+      return 'Client Secret is not set. Edit the profile and save it with the Client Secret first.';
+    }
+    try {
+      const result = await runAuthCodeFlow({
+        authorizeUrl: meta.authorizeUrl,
+        tokenUrl:     meta.tokenUrl,
+        clientId:     meta.clientId,
+        clientSecret: secrets.clientSecret,
+        scope:        meta.scope,
+        redirectPort: meta.redirectPort ?? 49152,
+      });
+      const expiry = result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined;
+      await this.saveSecrets(name, {
+        ...secrets,
+        token:        result.accessToken,
+        refreshToken: result.refreshToken,
+        tokenExpiry:  expiry,
+      });
+      return undefined;
+    } catch (err: unknown) {
+      return (err as Error).message;
+    }
+  }
+
+  /** Clears the stored access/refresh tokens for an authcode profile (sign out). */
+  async signOutProfile(name: string): Promise<void> {
+    const secrets = await this.loadSecrets(name);
+    await this.saveSecrets(name, { ...secrets, token: undefined, refreshToken: undefined, tokenExpiry: undefined });
+  }
+
+  /** Delete a profile by name. */
+  async deleteProfileByName(name: string): Promise<void> {
+    const idx = this.metas.findIndex(m => m.name === name);
+    if (idx >= 0) {
+      this.metas.splice(idx, 1);
+      await this.saveMetas();
+      await this.deleteSecrets(name);
+    }
+  }
 
   async manageProfiles() {
     const action = await vscode.window.showQuickPick(
@@ -235,6 +410,7 @@ export class AuthProfileManager {
     switch (profile.type) {
       case 'bearer':
       case 'oauth2':
+      case 'authcode':
         if (profile.token) { headers['Authorization'] = `Bearer ${profile.token}`; }
         break;
       case 'basic':
