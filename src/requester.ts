@@ -85,6 +85,7 @@ async function sendRequest(
       timeout: options.timeout || 30000,
       maxRedirects: options.followRedirects ? 5 : 0,
       validateStatus: () => true, // Don't throw on any status code
+      proxy: false, // bypass VS Code proxy settings
     };
 
     if (!options.validateSSL) {

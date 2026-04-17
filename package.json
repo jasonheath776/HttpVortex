@@ -20,7 +20,6 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": ["onLanguage:http"],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -121,6 +120,11 @@
         "command": "httpVortex.manageAuthProfiles",
         "title": "HTTP Vortex: Manage Auth Profiles",
         "icon": "$(shield)"
+      },
+      {
+        "command": "httpVortex.loginProfile",
+        "title": "HTTP Vortex: Sign In with Profile",
+        "icon": "$(sign-in)"
       },
       {
         "command": "httpVortex.manageSecrets",
@@ -229,37 +233,37 @@
           "group": "navigation@2"
         },
         {
-          "command": "httpVortex.generateMarkdown",
+          "command": "httpVortex.showHelp",
           "when": "httpVortex.httpFileOpen",
           "group": "navigation@3"
         },
         {
-          "command": "httpVortex.generateCode",
-          "when": "httpVortex.httpFileOpen",
-          "group": "navigation@4"
-        },
-        {
           "command": "httpVortex.enableParallel",
           "when": "httpVortex.httpFileOpen && !httpVortex.parallelMode",
-          "group": "navigation@5"
+          "group": "navigation@4"
         },
         {
           "command": "httpVortex.disableParallel",
           "when": "httpVortex.httpFileOpen && httpVortex.parallelMode",
-          "group": "navigation@5"
+          "group": "navigation@4"
         },
         {
           "command": "httpVortex.manageAuthProfiles",
           "when": "httpVortex.httpFileOpen",
-          "group": "navigation@6"
+          "group": "navigation@5"
         },
         {
           "command": "httpVortex.manageSecrets",
           "when": "httpVortex.httpFileOpen",
+          "group": "navigation@6"
+        },
+        {
+          "command": "httpVortex.generateMarkdown",
+          "when": "httpVortex.httpFileOpen",
           "group": "navigation@7"
         },
         {
-          "command": "httpVortex.showHelp",
+          "command": "httpVortex.generateCode",
           "when": "httpVortex.httpFileOpen",
           "group": "navigation@8"
         }
@@ -338,9 +342,10 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.24",
@@ -348,8 +353,10 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "axios": "^1.6.8",

@@ -21,7 +21,7 @@ export interface AuthCodeFlowConfig {
   authorizeUrl: string;
   tokenUrl: string;
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string;
   scope?: string;
   redirectPort: number;
 }
@@ -47,7 +47,7 @@ const FLOW_TIMEOUT_MS = 5 * 60 * 1000;
  *
  * Throws on any error (timeout, state mismatch, token exchange failure, etc.)
  */
-export async function runAuthCodeFlow(config: AuthCodeFlowConfig): Promise<TokenResponse> {
+export async function runAuthCodeFlow(config: AuthCodeFlowConfig, signal?: AbortSignal): Promise<TokenResponse> {
   const redirectUri = `http://localhost:${config.redirectPort}/callback`;
   const state = crypto.randomBytes(20).toString('hex');
 
@@ -71,6 +71,13 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig): Promise<Token
       server.close();
       if (err) { reject(err); } else { resolve(result!); }
     };
+
+    // Abort signal (user-triggered cancel)
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        finish(new Error('Sign-in cancelled.'));
+      }, { once: true });
+    }
 
     // Safety timeout
     const timer = setTimeout(() => {
@@ -109,13 +116,14 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig): Promise<Token
 
       // Exchange code → tokens
       try {
-        const body = new URLSearchParams({
-          grant_type:   'authorization_code',
+        const tokenParams: Record<string, string> = {
+          grant_type:  'authorization_code',
           code,
-          redirect_uri:  redirectUri,
-          client_id:    config.clientId,
-          client_secret: config.clientSecret,
-        });
+          redirect_uri: redirectUri,
+          client_id:   config.clientId,
+        };
+        if (config.clientSecret) { tokenParams['client_secret'] = config.clientSecret; }
+        const body = new URLSearchParams(tokenParams);
 
         const resp = await axios.post<{
           access_token:  string;
@@ -124,6 +132,7 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig): Promise<Token
         }>(config.tokenUrl, body.toString(), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
           timeout: 30_000,
+          proxy: false, // bypass VS Code proxy settings
         });
 
         finish(undefined, {
@@ -158,6 +167,48 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig): Promise<Token
       });
     });
   });
+}
+
+/**
+ * Uses a stored refresh token to obtain a new access token without opening
+ * the browser again.  Throws on any error.
+ */
+export async function runRefreshTokenFlow(
+  config: Pick<AuthCodeFlowConfig, 'tokenUrl' | 'clientId' | 'clientSecret'>,
+  refreshToken: string,
+): Promise<TokenResponse> {
+  const tokenParams: Record<string, string> = {
+    grant_type:    'refresh_token',
+    refresh_token: refreshToken,
+    client_id:     config.clientId,
+  };
+  if (config.clientSecret) { tokenParams['client_secret'] = config.clientSecret; }
+
+  try {
+    const resp = await axios.post<{
+      access_token:  string;
+      refresh_token?: string;
+      expires_in?:   number;
+    }>(config.tokenUrl, new URLSearchParams(tokenParams).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+      timeout: 30_000,
+      proxy: false, // bypass VS Code proxy settings
+    });
+    return {
+      accessToken:  resp.data.access_token,
+      refreshToken: resp.data.refresh_token,
+      expiresIn:    resp.data.expires_in,
+    };
+  } catch (err: unknown) {
+    let msg = 'Token refresh failed';
+    if (axios.isAxiosError(err)) {
+      const d = err.response?.data as Record<string, string> | undefined;
+      msg += `: ${d?.error_description ?? d?.error ?? err.message}`;
+    } else {
+      msg += `: ${String(err)}`;
+    }
+    throw new Error(msg);
+  }
 }
 
 // ── Response page shown in the browser after the callback ────────────────────

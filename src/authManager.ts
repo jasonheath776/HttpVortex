@@ -6,7 +6,7 @@
  */
 
 import * as vscode from 'vscode';
-import { runAuthCodeFlow } from './oauth2CodeFlow';
+import { runAuthCodeFlow, runRefreshTokenFlow } from './oauth2CodeFlow';
 
 export interface AuthProfile {
   name: string;
@@ -42,6 +42,12 @@ export interface ProfileListItem {
   redirectPort?: number;
   /** authcode only — whether a valid access token is currently stored. */
   hasToken?: boolean;
+  /** authcode only — whether a refresh token is stored. */
+  hasRefreshToken?: boolean;
+  /** authcode only — epoch ms when the access token expires (if reported by server). */
+  tokenExpiry?: number;
+  /** Whether this is the currently active profile. */
+  isActive?: boolean;
 }
 
 /** Input shape for creating / updating a profile via the credentials panel. */
@@ -86,10 +92,13 @@ interface AuthSecrets {
 export class AuthProfileManager {
   private context: vscode.ExtensionContext;
   private metas: AuthProfileMeta[] = [];
+  private activeProfileName: string | undefined;
+  private _flowAbort?: AbortController;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.loadMetas();
+    this.activeProfileName = this.context.globalState.get<string>('authProfiles.active');
     this.migrateIfNeeded();
   }
 
@@ -169,10 +178,13 @@ export class AuthProfileManager {
         name: m.name, type: m.type, username: m.username, headerName: m.headerName,
         authorizeUrl: m.authorizeUrl, tokenUrl: m.tokenUrl, clientId: m.clientId,
         scope: m.scope, redirectPort: m.redirectPort,
+        isActive: m.name === this.activeProfileName,
       };
       if (m.type === 'authcode') {
         const s = await this.loadSecrets(m.name);
         item.hasToken = !!s.token;
+        item.hasRefreshToken = !!s.refreshToken;
+        item.tokenExpiry = s.tokenExpiry;
       }
       results.push(item);
     }
@@ -237,9 +249,8 @@ export class AuthProfileManager {
       return 'Save the Authorize URL, Token URL, and Client ID before signing in.';
     }
     const secrets = await this.loadSecrets(name);
-    if (!secrets.clientSecret) {
-      return 'Client Secret is not set. Edit the profile and save it with the Client Secret first.';
-    }
+    const controller = new AbortController();
+    this._flowAbort = controller;
     try {
       const result = await runAuthCodeFlow({
         authorizeUrl: meta.authorizeUrl,
@@ -248,12 +259,55 @@ export class AuthProfileManager {
         clientSecret: secrets.clientSecret,
         scope:        meta.scope,
         redirectPort: meta.redirectPort ?? 49152,
-      });
+      }, controller.signal);
       const expiry = result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined;
       await this.saveSecrets(name, {
         ...secrets,
         token:        result.accessToken,
         refreshToken: result.refreshToken,
+        tokenExpiry:  expiry,
+      });
+      return undefined;
+    } catch (err: unknown) {
+      return (err as Error).message;
+    } finally {
+      this._flowAbort = undefined;
+    }
+  }
+
+  /** Aborts an in-progress auth code flow, releasing the local callback port. */
+  cancelAuthCodeFlow(): void {
+    this._flowAbort?.abort();
+    this._flowAbort = undefined;
+  }
+
+  /**
+   * Uses the stored refresh token to silently obtain a new access token.
+   * Returns an error string on failure, or undefined on success.
+   */
+  async refreshAccessToken(name: string): Promise<string | undefined> {
+    const meta = this.metas.find(m => m.name === name);
+    if (!meta || meta.type !== 'authcode') {
+      return `Profile "${name}" is not an Auth Code profile.`;
+    }
+    if (!meta.tokenUrl || !meta.clientId) {
+      return 'Save the Token URL and Client ID before refreshing.';
+    }
+    const secrets = await this.loadSecrets(name);
+    if (!secrets.refreshToken) {
+      return 'No refresh token stored. Please sign in first.';
+    }
+    try {
+      const result = await runRefreshTokenFlow(
+        { tokenUrl: meta.tokenUrl, clientId: meta.clientId, clientSecret: secrets.clientSecret },
+        secrets.refreshToken,
+      );
+      const expiry = result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined;
+      await this.saveSecrets(name, {
+        ...secrets,
+        token:        result.accessToken,
+        // Some servers rotate the refresh token; fall back to the existing one
+        refreshToken: result.refreshToken ?? secrets.refreshToken,
         tokenExpiry:  expiry,
       });
       return undefined;
@@ -403,6 +457,48 @@ export class AuthProfileManager {
     );
     if (!selected) { return undefined; }
     return this.loadWithSecrets(selected.meta);
+  }
+
+  // ── Active profile ─────────────────────────────────────────────────────────
+
+  getActiveProfileName(): string | undefined {
+    return this.activeProfileName;
+  }
+
+  async setActiveProfile(name: string | undefined): Promise<void> {
+    this.activeProfileName = name;
+    await this.context.globalState.update('authProfiles.active', name);
+  }
+
+  /**
+   * Returns variables derived from the active profile for injection into requests:
+   *   token      — the access token (bearer / oauth2 / authcode)
+   *   password   — basic auth password
+   *   apiKey     — api key value
+   *
+   * If the active profile has an expired authcode token within 60 s of expiry,
+   * callers should trigger a refresh first via startAuthCodeFlow().
+   */
+  async getActiveProfileVariables(): Promise<Record<string, string>> {
+    if (!this.activeProfileName) { return {}; }
+    const meta = this.metas.find(m => m.name === this.activeProfileName);
+    if (!meta) { return {}; }
+    const secrets = await this.loadSecrets(meta.name);
+    const vars: Record<string, string> = {};
+    switch (meta.type) {
+      case 'bearer':
+      case 'oauth2':
+      case 'authcode':
+        if (secrets.token) { vars['token'] = secrets.token; }
+        break;
+      case 'basic':
+        if (secrets.password) { vars['password'] = secrets.password; }
+        break;
+      case 'apikey':
+        if (secrets.apiKey) { vars['apiKey'] = secrets.apiKey; }
+        break;
+    }
+    return vars;
   }
 
   getAuthHeaders(profile: AuthProfile): Record<string, string> {

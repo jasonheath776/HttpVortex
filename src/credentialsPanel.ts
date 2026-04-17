@@ -115,6 +115,19 @@ export class CredentialsPanel {
           if (err) {
             this.post({ type: 'authCodeFlowResult', success: false, error: err });
           } else {
+            await this.authManager.setActiveProfile(profileName);
+            this.post({ type: 'authCodeFlowResult', success: true, profiles: await this.authManager.getProfileListWithStatus() });
+          }
+          break;
+        }
+
+        case 'refreshAccessToken': {
+          const profileName = msg.name as string;
+          const err = await this.authManager.refreshAccessToken(profileName);
+          if (err) {
+            this.post({ type: 'authCodeFlowResult', success: false, error: err });
+          } else {
+            await this.authManager.setActiveProfile(profileName);
             this.post({ type: 'authCodeFlowResult', success: true, profiles: await this.authManager.getProfileListWithStatus() });
           }
           break;
@@ -122,6 +135,32 @@ export class CredentialsPanel {
 
         case 'signOutProfile': {
           await this.authManager.signOutProfile(msg.name as string);
+          this.post({ type: 'profilesUpdated', profiles: await this.authManager.getProfileListWithStatus() });
+          break;
+        }
+
+        case 'cancelAuthCodeFlow': {
+          this.authManager.cancelAuthCodeFlow();
+          break;
+        }
+
+        case 'setActiveProfile': {
+          const activeName = msg.name as string | undefined;
+          await this.authManager.setActiveProfile(activeName);
+          // For authcode profiles, auto-trigger login if no token yet
+          if (activeName) {
+            const profileStatus = (await this.authManager.getProfileListWithStatus())
+              .find(p => p.name === activeName);
+            if (profileStatus?.type === 'authcode' && !profileStatus.hasToken) {
+              const err = await this.authManager.startAuthCodeFlow(activeName);
+              if (err) {
+                this.post({ type: 'authCodeFlowResult', success: false, error: err });
+              } else {
+                this.post({ type: 'authCodeFlowResult', success: true, profiles: await this.authManager.getProfileListWithStatus() });
+              }
+              break;
+            }
+          }
           this.post({ type: 'profilesUpdated', profiles: await this.authManager.getProfileListWithStatus() });
           break;
         }
@@ -135,6 +174,7 @@ export class CredentialsPanel {
     this.post({
       type: 'init',
       profiles: await this.authManager.getProfileListWithStatus(),
+      activeProfileName: this.authManager.getActiveProfileName(),
       secretNames: this.secretsManager.getSecretNames(),
       activeTab,
     });
@@ -162,10 +202,12 @@ let state = {
   tab: 'auth',
   profiles: [],
   secretNames: [],
+  activeProfileName: null,  // string | null
   selected: null,      // { index: number | null, isNew: boolean } | null
   confirmDelete: null, // string | null
   error: null,         // string | null
   signingIn: false,    // authcode flow in progress
+  cancelled: false,    // user cancelled the flow — ignore next authCodeFlowResult error
 };
 
 window.addEventListener('message', function(event) {
@@ -173,6 +215,7 @@ window.addEventListener('message', function(event) {
   if (msg.type === 'init') {
     state.tab = msg.activeTab;
     state.profiles = msg.profiles;
+    state.activeProfileName = msg.activeProfileName || null;
     state.secretNames = msg.secretNames;
     state.selected = null;
     state.confirmDelete = null;
@@ -186,6 +229,10 @@ window.addEventListener('message', function(event) {
     render();
   } else if (msg.type === 'profilesUpdated') {
     state.profiles = msg.profiles;
+    if (msg.profiles) {
+      var active = msg.profiles.find(function(p) { return p.isActive; });
+      state.activeProfileName = active ? active.name : null;
+    }
     state.selected = null;
     state.confirmDelete = null;
     state.error = null;
@@ -201,8 +248,16 @@ window.addEventListener('message', function(event) {
     renderDetail();
   } else if (msg.type === 'authCodeFlowResult') {
     state.signingIn = false;
+    if (state.cancelled) {
+      state.cancelled = false;
+      renderList();
+      renderDetail();
+      return;
+    }
     if (msg.success) {
       state.profiles = msg.profiles;
+      var activeAfterFlow = msg.profiles.find(function(p) { return p.isActive; });
+      state.activeProfileName = activeAfterFlow ? activeAfterFlow.name : null;
     } else {
       state.error = msg.error;
     }
@@ -249,6 +304,7 @@ function renderList() {
     listEl.innerHTML = state.profiles.map(function(p, i) {
       var isSelected = state.selected && !state.selected.isNew && state.selected.index === i;
       var isConfirming = state.confirmDelete === p.name;
+      var isActive = state.activeProfileName === p.name;
       var confirmHtml = isConfirming
         ? '<div class="confirm-row">Delete <strong>' + esc(p.name) + '</strong>?' +
             '<button class="btn-micro btn-danger" data-action="confirmDeleteProfile" data-name="' + esc(p.name) + '">Delete</button>' +
@@ -258,10 +314,16 @@ function renderList() {
       var deleteBtnHtml = isConfirming
         ? ''
         : '<button class="icon-btn" data-action="deleteItem" data-name="' + esc(p.name) + '" title="Delete">\u2715</button>';
-      return '<div class="list-item' + (isSelected ? ' active' : '') + '" data-index="' + i + '">' +
+      var authCodeBtn = '';
+      if (p.type === 'authcode' && p.hasToken && p.hasRefreshToken) {
+        var acDisabled = state.signingIn ? ' disabled' : '';
+        authCodeBtn = '<button class="btn-micro" data-action="listRefresh" data-name="' + esc(p.name) + '"' + acDisabled + ' title="Refresh token">&#8635;</button>';
+      }
+      return '<div class="list-item' + (isSelected ? ' active' : '') + (isActive ? ' profile-active' : '') + '" data-index="' + i + '">' +
         '<div class="item-row">' +
           '<span class="item-name">' + esc(p.name) + '</span>' +
           '<span class="type-badge type-' + esc(p.type) + '">' + esc(p.type) + '</span>' +
+          authCodeBtn +
           deleteBtnHtml +
         '</div>' + confirmHtml + '</div>';
     }).join('');
@@ -313,7 +375,7 @@ function getSecretLabel(type) {
   if (type === 'oauth2')   { return 'Access Token'; }
   if (type === 'basic')    { return 'Password'; }
   if (type === 'apikey')   { return 'API Key Value'; }
-  if (type === 'authcode') { return 'Client Secret'; }
+  if (type === 'authcode') { return 'Client Secret <span style="opacity:.5;font-weight:normal;text-transform:none">(optional)</span>'; }
   return 'Secret Value';
 }
 
@@ -348,10 +410,29 @@ function renderAuthForm() {
     var tokenStatusHtml = p.hasToken
       ? '<span class="token-status signed-in">&#10003; Signed in</span>'
       : '<span class="token-status signed-out">&#10007; Not signed in</span>';
+    var expiryHtml = '';
+    if (p.hasToken && p.tokenExpiry) {
+      var diffMs = p.tokenExpiry - Date.now();
+      var diffMin = Math.floor(Math.abs(diffMs) / 60000);
+      if (diffMs > 0) {
+        var expiryText = diffMin >= 60
+          ? 'expires in ' + Math.floor(diffMin / 60) + 'h ' + (diffMin % 60) + 'm'
+          : 'expires in ' + diffMin + ' min';
+        expiryHtml = '&nbsp;<span style="font-size:10px;opacity:.55">' + expiryText + '</span>';
+      } else {
+        expiryHtml = '&nbsp;<span style="font-size:10px;color:var(--vscode-inputValidation-warningForeground,#e2a620)">expired ' + diffMin + ' min ago</span>';
+      }
+    }
     var disabledAttr = (state.signingIn || !isConfigured) ? ' disabled' : '';
     var signInLabel  = state.signingIn ? 'Opening browser\u2026' : (p.hasToken ? 'Sign In Again' : 'Sign In');
-    var signOutBtn   = p.hasToken
-      ? '<button class="btn-secondary" data-action="signOut"' + disabledAttr + '>Sign Out</button>'
+    var cancelBtn    = state.signingIn
+      ? '<button class="btn-secondary" data-action="cancelAuthFlow">Release Port</button>'
+      : '';
+    var refreshBtn   = (!state.signingIn && p.hasToken && p.hasRefreshToken)
+      ? '<button class="btn-secondary" data-action="refreshToken">Refresh Token</button>'
+      : '';
+    var signOutBtn   = (!state.signingIn && p.hasToken)
+      ? '<button class="btn-secondary" data-action="signOut">Sign Out</button>'
       : '';
     var configWarning = isConfigured ? ''
       : '<p class="field-hint" style="color:var(--vscode-inputValidation-warningForeground,#e2a620)">' +
@@ -360,10 +441,12 @@ function renderAuthForm() {
     signInSection =
       '<hr class="form-divider">' +
       '<h3 class="section-sub">Sign In</h3>' +
-      '<div class="token-status-row">' + tokenStatusHtml + '</div>' +
+      '<div class="token-status-row">' + tokenStatusHtml + expiryHtml + '</div>' +
       configWarning +
       '<div class="form-actions">' +
         '<button class="btn-signin" data-action="signIn"' + disabledAttr + '>' + signInLabel + '</button>' +
+        cancelBtn +
+        refreshBtn +
         signOutBtn +
       '</div>';
   }
@@ -421,6 +504,7 @@ function renderAuthForm() {
         '<button class="btn-primary" data-action="saveProfile">Save</button>' +
         '<button class="btn-secondary" data-action="cancelForm">Cancel</button>' +
       '</div>' +
+      signInSection +
     '</div>';
 }
 
@@ -462,7 +546,7 @@ function updateConditionalFields(type) {
   if (gUser)     { gUser.style.display     = type === 'basic'    ? '' : 'none'; }
   if (gHdr)      { gHdr.style.display      = type === 'apikey'   ? '' : 'none'; }
   if (gAuthCode) { gAuthCode.style.display = type === 'authcode' ? '' : 'none'; }
-  if (lSec)      { lSec.textContent = getSecretLabel(type); }
+  if (lSec)      { lSec.innerHTML = getSecretLabel(type); }
 }
 
 // ── Event delegation ──────────────────────────────────────────────────────────
@@ -532,9 +616,34 @@ function handleAction(action, data) {
     state.error = null;
     renderDetail();
     vscode.postMessage({ type: 'startAuthCodeFlow', name: state.profiles[state.selected.index].name });
+  } else if (action === 'refreshToken') {
+    if (!state.selected || state.selected.isNew) { return; }
+    state.signingIn = true;
+    state.error = null;
+    renderDetail();
+    vscode.postMessage({ type: 'refreshAccessToken', name: state.profiles[state.selected.index].name });
+  } else if (action === 'cancelAuthFlow') {
+    state.signingIn = false;
+    state.cancelled = true;
+    renderDetail();
+    vscode.postMessage({ type: 'cancelAuthCodeFlow' });
   } else if (action === 'signOut') {
     if (!state.selected || state.selected.isNew) { return; }
     vscode.postMessage({ type: 'signOutProfile', name: state.profiles[state.selected.index].name });
+  } else if (action === 'setActiveProfile') {
+    vscode.postMessage({ type: 'setActiveProfile', name: data.name });
+  } else if (action === 'deactivateProfile') {
+    vscode.postMessage({ type: 'setActiveProfile', name: undefined });
+  } else if (action === 'listSignIn') {
+    state.signingIn = true;
+    state.error = null;
+    renderList();
+    vscode.postMessage({ type: 'startAuthCodeFlow', name: data.name });
+  } else if (action === 'listRefresh') {
+    state.signingIn = true;
+    state.error = null;
+    renderList();
+    vscode.postMessage({ type: 'refreshAccessToken', name: data.name });
   }
 }
 
@@ -791,6 +900,13 @@ html, body {
   border-color: rgba(244,135,113,0.5);
 }
 .btn-micro.btn-danger:hover { background: #6b1e1e; }
+.btn-micro.btn-active {
+  background: rgba(35,134,54,0.15);
+  color: #3fb950;
+  border-color: rgba(63,185,80,0.5);
+}
+.btn-micro.btn-active:hover { background: rgba(35,134,54,0.28); }
+.list-item.profile-active { border-left: 2px solid #3fb950; }
 
 /* ── Type badges ───────────────────────────────────── */
 .type-badge {

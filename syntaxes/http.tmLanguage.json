@@ -6,6 +6,9 @@
       "include": "#comments"
     },
     {
+      "include": "#response-handlers"
+    },
+    {
       "include": "#variables"
     },
     {
@@ -18,7 +21,7 @@
       "include": "#headers"
     },
     {
-      "include": "#response-handlers"
+      "include": "#debug-lines"
     },
     {
       "include": "#json-body"
@@ -33,7 +36,7 @@
       "patterns": [
         {
           "name": "variable.other.declaration.http",
-          "match": "^@([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*(.*)$",
+          "match": "^@(\\w[\\w.-]*)\\s*=\\s*(.*)$",
           "captures": {
             "1": {
               "name": "variable.other.readwrite.http"
@@ -45,7 +48,7 @@
         },
         {
           "name": "variable.other.substitution.http",
-          "match": "\\{\\{([a-zA-Z_][a-zA-Z0-9_]*)\\}\\}",
+          "match": "\\{\\{([^}]+)\\}\\}",
           "captures": {
             "1": {
               "name": "variable.other.readwrite.http"
@@ -82,9 +85,18 @@
         }
       }
     },
+    "debug-lines": {
+      "name": "meta.debug-statement.http",
+      "match": "^(>)\\s*(debug)\\(([^)]*)\\)\\s*$",
+      "captures": {
+        "1": { "name": "keyword.operator.debug.http" },
+        "2": { "name": "support.function.debug.http" },
+        "3": { "name": "variable.parameter.debug.http" }
+      }
+    },
     "response-handlers": {
       "name": "variable.other.response-handler.http",
-      "match": "^@([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*(res\\.[a-zA-Z0-9_.\\[\\]]+)$",
+      "match": "^@(\\w[\\w.-]*)\\s*=\\s*(res\\.[a-zA-Z0-9_.\\[\\]]+)$",
       "captures": {
         "1": {
           "name": "variable.other.readwrite.http"

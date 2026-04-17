@@ -119,7 +119,7 @@ Client Secret : (stored in OS keychain, optional for public clients)
 
 # Redirect URI to register with your IdP
 http://localhost:49152/callback`,
-    note: 'After sign-in the profile shows \u2713 Signed in. The access token is injected automatically on every Run. Use Sign Out to clear stored tokens.',
+    note: 'After sign-in the profile shows \u2713 Signed in. The access token is injected automatically on every Run. Use Sign Out to clear stored tokens. You can also trigger sign-in directly via the command "HTTP Vortex: Sign In with Profile" (or pass a profile name: httpVortex.loginProfile "My Profile").',
   },
   {
     title: 'Chaining requests',
@@ -195,18 +195,23 @@ Authorization: Bearer {{token}}`,
     body: `Ctrl+Shift+R       Run All Requests
 Ctrl+Alt+R         Run Current Request
 Ctrl+Shift+M       Generate Markdown Report
-Ctrl+Shift+C       Generate Code (C# / JS / Java)`,
+Ctrl+Shift+C       Generate Code (C# / JS / Java)
+
+Command palette shortcuts (Ctrl+Shift+P):
+  HTTP Vortex: Sign In with Profile   — pick an OAuth2 Auth Code profile and open the browser sign-in flow
+  HTTP Vortex: Manage Auth Profiles   — open Credentials Panel
+  HTTP Vortex: Load Environment File  — load a .env file`,
   },
   {
     title: 'Toolbar buttons (editor title bar)',
     body: `▶ Run All            Execute all blocks in the document
 ⊞ Show Results       Open the results panel
-📄 Generate Markdown  Export results as a Markdown report
-{} Generate Code      Export as C# / JavaScript / Java
+? Help               Open this reference panel
 ⊞ Parallel toggle    Enable / disable concurrent execution
 🛡 Auth Profiles      Open the Credentials Panel (Auth Profiles tab)
 🔒 Secrets            Open the Credentials Panel (Secrets tab)
-? Help               Open this reference panel`,
+📄 Generate Markdown  Export results as a Markdown report
+{} Generate Code      Export as C# / JavaScript / Java`,
   },
   {
     title: 'Results panel buttons',

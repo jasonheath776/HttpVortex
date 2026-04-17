@@ -193,6 +193,46 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // httpVortex.loginProfile [profileName]
+  // Triggers the OAuth2 Authorization Code browser flow for the named auth profile.
+  // If profileName is omitted a quick-pick lists all authcode profiles.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('httpVortex.loginProfile', async (profileName?: string) => {
+      let name = profileName;
+      if (!name) {
+        const list = await authManager.getProfileListWithStatus();
+        const authcodeProfiles = list.filter(p => p.type === 'authcode');
+        if (authcodeProfiles.length === 0) {
+          vscode.window.showWarningMessage(
+            'No OAuth2 Auth Code profiles found. Create one via "HTTP Vortex: Manage Auth Profiles".',
+          );
+          return;
+        }
+        const picked = await vscode.window.showQuickPick(
+          authcodeProfiles.map(p => ({
+            label: p.name,
+            description: p.hasToken ? '$(check) token stored' : '$(circle-slash) not signed in',
+          })),
+          { placeHolder: 'Select a profile to sign in with' },
+        );
+        if (!picked) { return; }
+        name = picked.label;
+      }
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Signing in: ${name}`, cancellable: false },
+        async () => {
+          const err = await authManager.startAuthCodeFlow(name!);
+          if (err) {
+            vscode.window.showErrorMessage(`Sign-in failed for "${name}": ${err}`);
+          } else {
+            vscode.window.showInformationMessage(`Signed in successfully as profile "${name}"`);
+          }
+        },
+      );
+    })
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand('httpVortex.manageSecrets', () => {
       CredentialsPanel.createOrShow(authManager, secretsManager, 'secrets');
@@ -267,10 +307,11 @@ async function runAllRequests(context: vscode.ExtensionContext) {
       return;
     }
 
-    // Merge secrets < env vars < global vars (later spread wins)
+    // Merge secrets < active profile < env vars < global vars (later spread wins)
     const secrets = await secretsManager.getAllSecrets();
+    const profileVars = await authManager.getActiveProfileVariables();
     const envVars = envManager.getAllVariables();
-    currentVariables = { ...secrets, ...envVars, ...globalVars };
+    currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars };
     
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
     resultsPanel.clearResults();
@@ -340,44 +381,46 @@ async function runCurrentRequest(context: vscode.ExtensionContext) {
   const cursorOffset = editor.document.offsetAt(cursorPosition);
 
   try {
-    // Parse all blocks to find the one containing the cursor
     const globalVars = parseGlobalVars(text);
-    const blocks = parseBlocks(text);
 
-    // Find which block contains the cursor
-    let targetBlock = null;
-    let currentOffset = 0;
-    const lines = text.split('\n');
-    let inBlock = false;
-    let blockIndex = -1;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineOffset = currentOffset;
-      const lineLength = line.length + 1; // +1 for newline
-
-      if (line.trim().startsWith('###')) {
-        inBlock = true;
-        blockIndex++;
-      }
-
-      if (inBlock && cursorOffset >= lineOffset && cursorOffset < lineOffset + lineLength) {
-        targetBlock = blocks[blockIndex];
-        break;
-      }
-
-      currentOffset += lineLength;
+    // Find all ### block start positions
+    const hashRe = /^###/gm;
+    const hashPositions: number[] = [];
+    let hm: RegExpExecArray | null;
+    while ((hm = hashRe.exec(text)) !== null) {
+      hashPositions.push(hm.index);
     }
 
-    if (!targetBlock) {
-      vscode.window.showWarningMessage('Cursor is not inside a request block');
+    // Find which block's range contains the cursor
+    let blockStart = -1;
+    let blockEnd = text.length;
+    for (let i = 0; i < hashPositions.length; i++) {
+      if (cursorOffset >= hashPositions[i]) {
+        blockStart = hashPositions[i];
+        blockEnd = i + 1 < hashPositions.length ? hashPositions[i + 1] : text.length;
+      }
+    }
+
+    if (blockStart === -1) {
+      vscode.window.showWarningMessage('Cursor is not inside a request block — place the cursor on or below a ### line');
       return;
     }
 
-    // Use current variables or build from secrets + globals
+    // Parse just the block the cursor is in
+    const parsedBlocks = parseBlocks(text.slice(blockStart, blockEnd));
+    const targetBlock = parsedBlocks[0] ?? null;
+
+    if (!targetBlock) {
+      vscode.window.showWarningMessage('Block has no HTTP request line — add e.g. "GET https://..."');
+      return;
+    }
+
+    // Use current variables or build from secrets + active profile + env + globals
     if (Object.keys(currentVariables).length === 0) {
       const secrets = await secretsManager.getAllSecrets();
-      currentVariables = { ...secrets, ...globalVars };
+      const profileVars = await authManager.getActiveProfileVariables();
+      const envVars = envManager.getAllVariables();
+      currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars };
     }
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
 
@@ -568,7 +611,9 @@ async function runFromHere(context: vscode.ExtensionContext, startLine: number) 
     }
 
     const secrets = await secretsManager.getAllSecrets();
-    currentVariables = { ...secrets, ...globalVars };
+    const profileVars = await authManager.getActiveProfileVariables();
+    const envVarsFrom = envManager.getAllVariables();
+    currentVariables = { ...secrets, ...profileVars, ...envVarsFrom, ...globalVars };
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
     resultsPanel.clearResults();
 

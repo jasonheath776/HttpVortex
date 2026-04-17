@@ -112,7 +112,7 @@ export function parseBlocks(text: string): HttpBlock[] {
       
       const afterMethod = rest.slice(methodLineIdx + 1);
 
-      // Parse headers up to the first blank line
+      // Parse headers up to the first blank line or first > directive line
       const headers: Record<string, string> = {};
       let bodyStartIdx = -1;
       for (let i = 0; i < afterMethod.length; i++) {
@@ -123,6 +123,11 @@ export function parseBlocks(text: string): HttpBlock[] {
         }
         if (line.trim().startsWith('#')) {
           continue;
+        }
+        // Debug directives (> ...) signal the start of the post-request section
+        if (line.trim().startsWith('>')) {
+          bodyStartIdx = i;
+          break;
         }
         const colonIdx = line.indexOf(':');
         if (colonIdx > 0) {
@@ -155,7 +160,8 @@ export function parseBlocks(text: string): HttpBlock[] {
             debugs.push({ expr: trimmed.slice(8, -1).trim() });
             continue;
           }
-          
+
+
           if (!trimmed.startsWith('#')) {
             bodyLines.push(line);
           }

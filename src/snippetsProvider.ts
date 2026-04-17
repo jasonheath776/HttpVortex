@@ -13,31 +13,31 @@ export class HttpSnippetsProvider implements vscode.CompletionItemProvider {
           label: 'GET',
           hint: 'Read a resource',
           detail: 'Simple GET request with headers',
-          snippet: '### ${1:Get Resource}\nGET ${2:{{baseUrl}}/endpoint}\nAuthorization: Bearer {{token}}\nAccept: application/json\n',
+          snippet: '### ${1:GET Request}\nGET ${2:{{baseUrl\\}\\}/endpoint}\nAuthorization: Bearer {{token}}\nAccept: application/json\n',
         },
         {
           label: 'POST',
           hint: 'Create with JSON body',
           detail: 'POST request with JSON body',
-          snippet: '### ${1:Create Resource}\nPOST ${2:{{baseUrl}}/endpoint}\nContent-Type: application/json\nAuthorization: Bearer {{token}}\n\n{\n  ${3:"key": "value"}\n}\n',
+          snippet: '### ${1:POST Request}\nPOST ${2:{{baseUrl\\}\\}/endpoint}\nContent-Type: application/json\nAuthorization: Bearer {{token}}\n\n{\n  ${3:"key": "value"}\n}\n',
         },
         {
           label: 'PUT',
           hint: 'Replace with JSON body',
           detail: 'PUT request with JSON body',
-          snippet: '### ${1:Update Resource}\nPUT ${2:{{baseUrl}}/endpoint}\nContent-Type: application/json\nAuthorization: Bearer {{token}}\n\n{\n  ${3:"key": "value"}\n}\n',
+          snippet: '### ${1:PUT Request}\nPUT ${2:{{baseUrl\\}\\}/endpoint}\nContent-Type: application/json\nAuthorization: Bearer {{token}}\n\n{\n  ${3:"key": "value"}\n}\n',
         },
         {
           label: 'PATCH',
           hint: 'Partial update with JSON body',
           detail: 'PATCH request with JSON body',
-          snippet: '### ${1:Partial Update}\nPATCH ${2:{{baseUrl}}/endpoint}\nContent-Type: application/json\nAuthorization: Bearer {{token}}\n\n{\n  ${3:"key": "value"}\n}\n',
+          snippet: '### ${1:PATCH Request}\nPATCH ${2:{{baseUrl\\}\\}/endpoint}\nContent-Type: application/json\nAuthorization: Bearer {{token}}\n\n{\n  ${3:"key": "value"}\n}\n',
         },
         {
           label: 'DELETE',
           hint: 'Remove a resource',
           detail: 'DELETE request',
-          snippet: '### ${1:Delete Resource}\nDELETE ${2:{{baseUrl}}/endpoint}\nAuthorization: Bearer {{token}}\n',
+          snippet: '### ${1:DELETE Request}\nDELETE ${2:{{baseUrl\\}\\}/endpoint}\nAuthorization: Bearer {{token}}\n',
         },
       ],
     },
@@ -48,7 +48,7 @@ export class HttpSnippetsProvider implements vscode.CompletionItemProvider {
           label: 'Bearer Token',
           hint: 'OAuth2 Bearer Token',
           detail: 'Authorization: Bearer token pattern',
-          snippet: 'Authorization: Bearer ${1:{{token}}}',
+          snippet: 'Authorization: Bearer ${1:{{token\\}\\}}',
         },
         {
           label: 'Basic Auth',
@@ -60,13 +60,13 @@ export class HttpSnippetsProvider implements vscode.CompletionItemProvider {
           label: 'API Key',
           hint: 'API Key header',
           detail: 'X-API-Key header pattern',
-          snippet: 'X-API-Key: ${1:{{apiKey}}}',
+          snippet: 'X-API-Key: ${1:{{apiKey\\}\\}}',
         },
         {
           label: 'OAuth2 Token Request',
           hint: 'OAuth2 client_credentials flow',
           detail: 'Get access token from identity server',
-          snippet: '### ${1:Get Access Token}\nPOST ${2:https://your-identityserver/connect/token}\nContent-Type: application/x-www-form-urlencoded\n\ngrant_type=client_credentials&client_id=${3:your-client}&client_secret=${4:your-secret}&scope=${5:your-scope}\n\n@token = res.data.access_token\n',
+          snippet: '### ${1:Get Access Token}\n@idpUrl = ${2:https://your-identityserver}\n\nPOST {{idpUrl}}/connect/token\nContent-Type: application/x-www-form-urlencoded\n\ngrant_type=client_credentials&client_id=${3:your-client}&client_secret=${4:your-secret}&scope=${5:your-scope}\n\n@token = res.data.access_token\n',
         },
       ],
     },
@@ -214,6 +214,6 @@ export function registerSnippetsProvider(context: vscode.ExtensionContext): void
   ];
 
   const provider = new HttpSnippetsProvider();
-  const disposable = vscode.languages.registerCompletionItemProvider(selector, provider, '\n', '@', '>', '?');
+  const disposable = vscode.languages.registerCompletionItemProvider(selector, provider, '@', '>', '?');
   context.subscriptions.push(disposable);
 }
