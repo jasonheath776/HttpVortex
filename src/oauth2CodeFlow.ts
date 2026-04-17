@@ -14,8 +14,13 @@
 
 import * as http from 'http';
 import * as crypto from 'crypto';
+import * as https from 'https';
 import * as vscode from 'vscode';
 import axios from 'axios';
+
+// Shared agents — bypass VS Code's patched http.globalAgent / https.globalAgent.
+const _httpAgent  = new http.Agent();
+const _httpsAgent = new https.Agent();
 
 export interface AuthCodeFlowConfig {
   authorizeUrl: string;
@@ -132,7 +137,9 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig, signal?: Abort
         }>(config.tokenUrl, body.toString(), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
           timeout: 30_000,
-          proxy: false, // bypass VS Code proxy settings
+          proxy: false,
+          httpAgent: _httpAgent,
+          httpsAgent: _httpsAgent,
         });
 
         finish(undefined, {
@@ -192,7 +199,9 @@ export async function runRefreshTokenFlow(
     }>(config.tokenUrl, new URLSearchParams(tokenParams).toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
       timeout: 30_000,
-      proxy: false, // bypass VS Code proxy settings
+      proxy: false,
+      httpAgent: _httpAgent,
+      httpsAgent: _httpsAgent,
     });
     return {
       accessToken:  resp.data.access_token,

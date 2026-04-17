@@ -115,7 +115,7 @@ export class CredentialsPanel {
           if (err) {
             this.post({ type: 'authCodeFlowResult', success: false, error: err });
           } else {
-            await this.authManager.setActiveProfile(profileName);
+            try { await this.authManager.setActiveProfile(profileName); } catch { /* best-effort */ }
             this.post({ type: 'authCodeFlowResult', success: true, profiles: await this.authManager.getProfileListWithStatus() });
           }
           break;
@@ -127,7 +127,7 @@ export class CredentialsPanel {
           if (err) {
             this.post({ type: 'authCodeFlowResult', success: false, error: err });
           } else {
-            await this.authManager.setActiveProfile(profileName);
+            try { await this.authManager.setActiveProfile(profileName); } catch { /* best-effort */ }
             this.post({ type: 'authCodeFlowResult', success: true, profiles: await this.authManager.getProfileListWithStatus() });
           }
           break;
@@ -640,9 +640,11 @@ function handleAction(action, data) {
     renderList();
     vscode.postMessage({ type: 'startAuthCodeFlow', name: data.name });
   } else if (action === 'listRefresh') {
+    var refreshIdx = state.profiles.findIndex(function(p) { return p.name === data.name; });
     state.signingIn = true;
     state.error = null;
-    renderList();
+    if (refreshIdx !== -1) { state.selected = { index: refreshIdx, isNew: false }; }
+    render();
     vscode.postMessage({ type: 'refreshAccessToken', name: data.name });
   }
 }

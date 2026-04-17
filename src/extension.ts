@@ -31,7 +31,6 @@ let secretsManager: SecretsManager;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('HTTP Vortex extension activated');
-  vscode.window.showInformationMessage('HTTP Vortex extension is now active!');
 
   // Initialize managers
   authManager = new AuthProfileManager(context);
@@ -415,13 +414,11 @@ async function runCurrentRequest(context: vscode.ExtensionContext) {
       return;
     }
 
-    // Use current variables or build from secrets + active profile + env + globals
-    if (Object.keys(currentVariables).length === 0) {
-      const secrets = await secretsManager.getAllSecrets();
-      const profileVars = await authManager.getActiveProfileVariables();
-      const envVars = envManager.getAllVariables();
-      currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars };
-    }
+    // Always re-resolve so env/profile changes take effect without clearing vars
+    const secrets = await secretsManager.getAllSecrets();
+    const profileVars = await authManager.getActiveProfileVariables();
+    const envVars = envManager.getAllVariables();
+    currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars };
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
 
     const config = vscode.workspace.getConfiguration('httpVortex');

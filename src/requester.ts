@@ -3,9 +3,15 @@
  */
 
 import axios, { AxiosError } from 'axios';
+import * as http from 'http';
 import * as https from 'https';
 import * as lodash from 'lodash';
 import { HttpBlock } from './parser';
+
+// Module-level agents so connection pools are reused across requests.
+const _httpAgent          = new http.Agent();
+const _httpsAgent         = new https.Agent({ rejectUnauthorized: true });
+const _httpsAgentNoVerify = new https.Agent({ rejectUnauthorized: false });
 
 export interface RequestResult {
   id: string;
@@ -85,14 +91,10 @@ async function sendRequest(
       timeout: options.timeout || 30000,
       maxRedirects: options.followRedirects ? 5 : 0,
       validateStatus: () => true, // Don't throw on any status code
-      proxy: false, // bypass VS Code proxy settings
+      proxy: false, // bypass VS Code proxy env vars
+      httpAgent: _httpAgent,
+      httpsAgent: options.validateSSL !== false ? _httpsAgent : _httpsAgentNoVerify,
     };
-
-    if (!options.validateSSL) {
-      config.httpsAgent = new https.Agent({
-        rejectUnauthorized: false,
-      });
-    }
 
     if (body) {
       // Try to parse as JSON, otherwise send as-is
@@ -357,32 +359,34 @@ export async function runAllParallel(
 
   // Pending blocks waiting for dependencies
   const pending = [...blocks];
-  let inFlight: Promise<void>[] = [];
+  const running = new Set<Promise<void>>();
 
-  while (pending.length > 0 || inFlight.length > 0) {
-    // Start new blocks while we have capacity
-    while (inFlight.length < concurrency &&pending.length > 0) {
+  // Fill up to `concurrency` with any blocks whose dependencies are satisfied.
+  function tryStart(): void {
+    while (running.size < concurrency && pending.length > 0) {
       const idx = pending.findIndex((b) => canRun(b));
-      if (idx === -1) break; // No unblocked blocks available
-      
+      if (idx === -1) { break; } // remaining blocks are waiting on captures
       const block = pending.splice(idx, 1)[0];
-      const blockPromise = runBlock(block).catch((error) => {
-        onResult({
-          id: generateId(),
-          name: block.name,
-          method: block.method,
-          url: '',
-          ok: false,
-          error: (error as Error).message,
-        });
-      });
-      inFlight.push(blockPromise);
+      let p!: Promise<void>;
+      p = runBlock(block)
+        .catch((error: unknown) => {
+          onResult({
+            id: generateId(),
+            name: block.name,
+            method: block.method,
+            url: '',
+            ok: false,
+            error: (error as Error).message,
+          });
+        })
+        .then(() => { running.delete(p); });
+      running.add(p);
     }
+  }
 
-    if (inFlight.length === 0) break;
-    
-    // Wait for one to complete, then filter
-    await Promise.allSettled(inFlight);
-    inFlight = [];
+  tryStart();
+  while (running.size > 0) {
+    await Promise.race(running); // wait for first slot to free, then fill
+    tryStart();
   }
 }
