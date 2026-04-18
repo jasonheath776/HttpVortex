@@ -29,8 +29,33 @@ let historyManager: RequestHistoryManager;
 let envManager: EnvironmentManager;
 let secretsManager: SecretsManager;
 
+function isVisibleHttpEditor(editor: vscode.TextEditor): boolean {
+  return editor.document.languageId === 'http';
+}
+
+function createHttpStatusBarItem(
+  command: string,
+  text: string,
+  tooltip: string,
+  priority: number,
+): vscode.StatusBarItem {
+  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
+  item.command = command;
+  item.text = text;
+  item.tooltip = tooltip;
+  return item;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   console.log('HTTP Vortex extension activated');
+
+  const runAllStatus = createHttpStatusBarItem('httpVortex.runAll', '$(play) HTTP Vortex', 'Run all HTTP requests', 110);
+  const resultsStatus = createHttpStatusBarItem('httpVortex.showResults', '$(output) Results', 'Show HTTP results', 109);
+  const markdownStatus = createHttpStatusBarItem('httpVortex.generateMarkdown', '$(file-text) Markdown', 'Generate a Markdown report', 108);
+  const parallelOnStatus = createHttpStatusBarItem('httpVortex.disableParallel', '$(type-hierarchy) Parallel On', 'Disable parallel execution', 107);
+  const parallelOffStatus = createHttpStatusBarItem('httpVortex.enableParallel', '$(type-hierarchy-sub) Parallel Off', 'Enable parallel execution', 107);
+  const httpStatusBarItems = [runAllStatus, resultsStatus, markdownStatus, parallelOnStatus, parallelOffStatus];
+  context.subscriptions.push(...httpStatusBarItems);
 
   // Initialize managers
   authManager = new AuthProfileManager(context);
@@ -71,21 +96,49 @@ export function activate(context: vscode.ExtensionContext) {
   // Track HTTP file open state for context menu buttons
   const updateHttpFileContext = () => {
     const activeEditor = vscode.window.activeTextEditor;
+    // Strict check: true ONLY when the focused editor is an HTTP text editor.
+    // This is false when a webview panel (e.g. results) has focus.
+    const activeIsHttp = !!activeEditor && activeEditor.document.languageId === 'http';
+    vscode.commands.executeCommand('setContext', 'httpVortex.activeEditorIsHttp', activeIsHttp);
+
+    // Loose check: true when any visible editor is HTTP (for status bar / command palette).
     let isHttpFile: boolean;
     if (activeEditor) {
       isHttpFile = activeEditor.document.languageId === 'http';
     } else {
-      // A non-editor panel (e.g. results webview) has focus — check visible editors
       isHttpFile = vscode.window.visibleTextEditors.some(
-        e => e.document.languageId === 'http'
+        isVisibleHttpEditor
       );
     }
     vscode.commands.executeCommand('setContext', 'httpVortex.httpFileOpen', isHttpFile);
+
+    if (!isHttpFile) {
+      for (const item of httpStatusBarItems) {
+        item.hide();
+      }
+      return;
+    }
+
+    runAllStatus.show();
+    resultsStatus.show();
+    markdownStatus.show();
+    if (parallelMode) {
+      parallelOnStatus.show();
+      parallelOffStatus.hide();
+    } else {
+      parallelOffStatus.show();
+      parallelOnStatus.hide();
+    }
   };
 
   // Update context when editor changes
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(() => {
+      updateHttpFileContext();
+    })
+  );
+  context.subscriptions.push(
+    vscode.window.onDidChangeVisibleTextEditors(() => {
       updateHttpFileContext();
     })
   );
@@ -118,8 +171,8 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('httpVortex.runCurrent', async () => {
-      await runCurrentRequest(context);
+    vscode.commands.registerCommand('httpVortex.runCurrent', async (codeLensLine?: number) => {
+      await runCurrentRequest(context, codeLensLine);
     })
   );
 
@@ -164,6 +217,7 @@ export function activate(context: vscode.ExtensionContext) {
   const setParallel = (value: boolean) => {
     parallelMode = value;
     vscode.commands.executeCommand('setContext', 'httpVortex.parallelMode', value);
+    updateHttpFileContext();
   };
   setParallel(false); // initialize context key
 
@@ -363,7 +417,7 @@ async function runAllRequests(context: vscode.ExtensionContext) {
   }
 }
 
-async function runCurrentRequest(context: vscode.ExtensionContext) {
+async function runCurrentRequest(context: vscode.ExtensionContext, codeLensLine?: number) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active editor');
@@ -376,8 +430,6 @@ async function runCurrentRequest(context: vscode.ExtensionContext) {
   }
 
   const text = editor.document.getText();
-  const cursorPosition = editor.selection.active;
-  const cursorOffset = editor.document.offsetAt(cursorPosition);
 
   try {
     const globalVars = parseGlobalVars(text);
@@ -390,13 +442,26 @@ async function runCurrentRequest(context: vscode.ExtensionContext) {
       hashPositions.push(hm.index);
     }
 
-    // Find which block's range contains the cursor
+    // Find which block's range to run
     let blockStart = -1;
     let blockEnd = text.length;
-    for (let i = 0; i < hashPositions.length; i++) {
-      if (cursorOffset >= hashPositions[i]) {
-        blockStart = hashPositions[i];
-        blockEnd = i + 1 < hashPositions.length ? hashPositions[i + 1] : text.length;
+
+    if (codeLensLine !== undefined) {
+      // CodeLens click: find the block whose ### is on exactly this line (exact match)
+      const lineOffset = editor.document.offsetAt(new vscode.Position(codeLensLine, 0));
+      const idx = hashPositions.indexOf(lineOffset);
+      if (idx !== -1) {
+        blockStart = hashPositions[idx];
+        blockEnd = idx + 1 < hashPositions.length ? hashPositions[idx + 1] : text.length;
+      }
+    } else {
+      // Cursor-based: find the last ### at or before the cursor position
+      const cursorOffset = editor.document.offsetAt(editor.selection.active);
+      for (let i = 0; i < hashPositions.length; i++) {
+        if (cursorOffset >= hashPositions[i]) {
+          blockStart = hashPositions[i];
+          blockEnd = i + 1 < hashPositions.length ? hashPositions[i + 1] : text.length;
+        }
       }
     }
 
@@ -414,11 +479,13 @@ async function runCurrentRequest(context: vscode.ExtensionContext) {
       return;
     }
 
-    // Always re-resolve so env/profile changes take effect without clearing vars
+    // Re-resolve base config so env/profile changes take effect, but preserve
+    // any variables captured from previous block runs (e.g. auth tokens).
+    // Captured vars overlay the fresh base so they win over static config.
     const secrets = await secretsManager.getAllSecrets();
     const profileVars = await authManager.getActiveProfileVariables();
     const envVars = envManager.getAllVariables();
-    currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars };
+    currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars, ...currentVariables };
     resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
 
     const config = vscode.workspace.getConfiguration('httpVortex');

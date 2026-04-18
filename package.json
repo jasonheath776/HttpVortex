@@ -2,7 +2,7 @@
   "name": "http-vortex",
   "displayName": "HTTP Vortex Runner",
   "description": "Text-first HTTP runbook editor for VS Code",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "jheath",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -20,6 +20,7 @@
   "categories": [
     "Other"
   ],
+  "activationEvents": ["onLanguage:http"],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -122,11 +123,6 @@
         "icon": "$(shield)"
       },
       {
-        "command": "httpVortex.loginProfile",
-        "title": "HTTP Vortex: Sign In with Profile",
-        "icon": "$(sign-in)"
-      },
-      {
         "command": "httpVortex.manageSecrets",
         "title": "HTTP Vortex: Manage Secrets",
         "icon": "$(lock)"
@@ -185,25 +181,25 @@
         "command": "httpVortex.runAll",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r",
-        "when": "httpVortex.httpFileOpen"
+        "when": "editorLangId == 'http'"
       },
       {
         "command": "httpVortex.runCurrent",
         "key": "ctrl+alt+r",
         "mac": "cmd+alt+r",
-        "when": "httpVortex.httpFileOpen"
+        "when": "editorLangId == 'http'"
       },
       {
         "command": "httpVortex.generateMarkdown",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m",
-        "when": "httpVortex.httpFileOpen"
+        "when": "editorLangId == 'http'"
       },
       {
         "command": "httpVortex.generateCode",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
-        "when": "httpVortex.httpFileOpen"
+        "when": "editorLangId == 'http'"
       }
     ],
     "menus": {
@@ -224,91 +220,91 @@
       "editor/title": [
         {
           "command": "httpVortex.runAll",
-          "when": "httpVortex.httpFileOpen",
+          "when": "!activeWebviewPanelId && editorLangId == http",
           "group": "navigation@1"
         },
         {
           "command": "httpVortex.showResults",
-          "when": "httpVortex.httpFileOpen",
+          "when": "!activeWebviewPanelId && editorLangId == http",
           "group": "navigation@2"
         },
         {
-          "command": "httpVortex.showHelp",
-          "when": "httpVortex.httpFileOpen",
+          "command": "httpVortex.generateMarkdown",
+          "when": "!activeWebviewPanelId && editorLangId == http",
           "group": "navigation@3"
         },
         {
+          "command": "httpVortex.generateCode",
+          "when": "!activeWebviewPanelId && editorLangId == http",
+          "group": "navigation@4"
+        },
+        {
           "command": "httpVortex.enableParallel",
-          "when": "httpVortex.httpFileOpen && !httpVortex.parallelMode",
-          "group": "navigation@4"
-        },
-        {
-          "command": "httpVortex.disableParallel",
-          "when": "httpVortex.httpFileOpen && httpVortex.parallelMode",
-          "group": "navigation@4"
-        },
-        {
-          "command": "httpVortex.manageAuthProfiles",
-          "when": "httpVortex.httpFileOpen",
+          "when": "!activeWebviewPanelId && editorLangId == http && !httpVortex.parallelMode",
           "group": "navigation@5"
         },
         {
-          "command": "httpVortex.manageSecrets",
-          "when": "httpVortex.httpFileOpen",
+          "command": "httpVortex.disableParallel",
+          "when": "!activeWebviewPanelId && editorLangId == http && httpVortex.parallelMode",
+          "group": "navigation@5"
+        },
+        {
+          "command": "httpVortex.manageAuthProfiles",
+          "when": "!activeWebviewPanelId && editorLangId == http",
           "group": "navigation@6"
         },
         {
-          "command": "httpVortex.generateMarkdown",
-          "when": "httpVortex.httpFileOpen",
+          "command": "httpVortex.manageSecrets",
+          "when": "!activeWebviewPanelId && editorLangId == http",
           "group": "navigation@7"
         },
         {
-          "command": "httpVortex.generateCode",
-          "when": "httpVortex.httpFileOpen",
+          "command": "httpVortex.showHelp",
+          "when": "!activeWebviewPanelId && editorLangId == http",
           "group": "navigation@8"
         }
       ],
       "editor/context": [
         {
           "command": "httpVortex.runCurrent",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@1"
         },
         {
           "command": "httpVortex.runAll",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@2"
         },
         {
           "command": "httpVortex.runFromHere",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@3"
         },
         {
           "command": "httpVortex.exportPostman",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@4"
         },
         {
           "command": "httpVortex.importPostman",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@5"
         },
         {
           "command": "httpVortex.generateCode",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@6"
         },
         {
           "command": "httpVortex.generateMarkdown",
-          "when": "httpVortex.httpFileOpen",
+          "when": "editorLangId == 'http'",
           "group": "httpVortex@7"
         }
       ],
       "commandPalette": [
         {
           "command": "httpVortex.runFromHere",
-          "when": "httpVortex.httpFileOpen"
+          "when": "editorLangId == http"
         }
       ]
     },
@@ -342,10 +338,9 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.24",
@@ -353,10 +348,8 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
-    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.0",
-    "vitest": "^4.1.4"
+    "typescript": "^5.3.0"
   },
   "dependencies": {
     "axios": "^1.6.8",

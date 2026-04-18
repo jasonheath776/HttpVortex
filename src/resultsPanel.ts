@@ -62,6 +62,15 @@ export class ResultsPanel {
           case 'exportSingleResult':
             vscode.commands.executeCommand('httpVortex.exportSingleResult', message.index);
             break;
+          case 'copyResult': {
+            const r = this.results[message.index];
+            if (r && r.data) {
+              const text = typeof r.data === 'string' ? r.data : JSON.stringify(r.data, null, 2);
+              vscode.env.clipboard.writeText(text);
+              vscode.window.showInformationMessage('Response copied to clipboard');
+            }
+            break;
+          }
         }
       },
       null,
@@ -102,9 +111,7 @@ export class ResultsPanel {
 
   private getHtmlContent(): string {
     const nonce = getNonce();
-    const total = this.results.filter(r => r.type !== 'debug').length;
-    const passed = this.results.filter(r => r.type !== 'debug' && r.ok).length;
-    const failed = total - passed;
+
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -124,55 +131,6 @@ export class ResultsPanel {
       color: var(--vscode-foreground);
       background: var(--vscode-editor-background);
     }
-
-    /* ── Toolbar ─────────────────────────────── */
-    .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 16px;
-      background: var(--vscode-titleBar-activeBackground, var(--vscode-editor-background));
-      border-bottom: 1px solid var(--vscode-panel-border);
-      gap: 8px;
-    }
-    .summary {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 12px;
-      font-weight: 500;
-      opacity: 0.9;
-    }
-    .summary-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    .chip-pass { background: #1a472a; color: #4ec97b; }
-    .chip-fail { background: #4c1414; color: #f48771; }
-    .chip-total { background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
-    .toolbar-btn {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border: none;
-      padding: 5px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      font-weight: 500;
-      transition: background 0.1s;
-      white-space: nowrap;
-    }
-    .toolbar-btn:hover { background: var(--vscode-button-hoverBackground); }
-    .toolbar-btn:disabled { opacity: 0.4; cursor: default; }
 
     /* ── Container ───────────────────────────── */
     .container {
@@ -263,7 +221,7 @@ export class ResultsPanel {
       flex-shrink: 0;
       font-variant-numeric: tabular-nums;
     }
-    .export-single-btn {
+    .export-single-btn, .copy-result-btn {
       background: transparent;
       border: 1px solid transparent;
       color: var(--vscode-foreground);
@@ -275,10 +233,12 @@ export class ResultsPanel {
       transition: opacity 0.15s;
       flex-shrink: 0;
     }
-    .result-header:hover .export-single-btn {
+    .result-header:hover .export-single-btn,
+    .result-header:hover .copy-result-btn {
       opacity: 0.6;
     }
-    .export-single-btn:hover {
+    .export-single-btn:hover,
+    .copy-result-btn:hover {
       opacity: 1 !important;
       border-color: var(--vscode-panel-border);
       background: var(--vscode-list-hoverBackground);
@@ -389,22 +349,30 @@ export class ResultsPanel {
     .empty-sub {
       font-size: 12px;
     }
+    .export-all-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+    .export-all-btn {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+      transition: background 0.1s;
+      white-space: nowrap;
+    }
+    .export-all-btn:hover { background: var(--vscode-button-hoverBackground); }
   </style>
 </head>
 <body>
-  <div class="toolbar">
-    <div class="summary">
-      ${this.results.length > 0 ? `
-        <span class="summary-chip chip-total">${total} request${total !== 1 ? 's' : ''}</span>
-        ${passed > 0 ? `<span class="summary-chip chip-pass">&#10003; ${passed} passed</span>` : ''}
-        ${failed > 0 ? `<span class="summary-chip chip-fail">&#10007; ${failed} failed</span>` : ''}
-      ` : '<span style="font-size:12px;opacity:0.5">No results yet</span>'}
-    </div>
-    <button class="toolbar-btn" id="export-md-btn" ${this.results.length === 0 ? 'disabled' : ''} title="Export results as Markdown report">
-      &#x1F4C4;&nbsp; Export Markdown
-    </button>
-  </div>
   <div class="container">
+    ${this.results.length > 0 ? `<div class="export-all-bar"><button class="export-all-btn" id="export-md-btn">&#x1F4C4;&nbsp; Export All as Markdown</button></div>` : ''}
     ${this.results.length === 0 ? this.getEmptyState() : this.results.map((r, i) => this.renderResult(r, i)).join('')}
   </div>
   <script nonce="${nonce}">
@@ -428,14 +396,21 @@ export class ResultsPanel {
         setTimeout(() => { target.textContent = orig; }, 1200);
       }
 
-      // Export markdown
-      if (target.id === 'export-md-btn' || target.closest('#export-md-btn')) {
-        vscode.postMessage({ command: 'exportMarkdown' });
-      }
       // Export single result
       if (target.classList.contains('export-single-btn') || target.closest('.export-single-btn')) {
         const btn = target.closest('.export-single-btn') || target;
         vscode.postMessage({ command: 'exportSingleResult', index: parseInt(btn.dataset.index, 10) });
+      }
+
+      // Copy single result response body
+      if (target.classList.contains('copy-result-btn') || target.closest('.copy-result-btn')) {
+        const btn = target.closest('.copy-result-btn') || target;
+        vscode.postMessage({ command: 'copyResult', index: parseInt(btn.dataset.index, 10) });
+      }
+
+      // Export all as Markdown
+      if (target.id === 'export-md-btn' || target.closest('#export-md-btn')) {
+        vscode.postMessage({ command: 'exportMarkdown' });
       }
     });
   </script>
@@ -484,6 +459,7 @@ export class ResultsPanel {
           <span class="method-badge ${methodClass}">${result.method}</span>
           ${result.status ? `<span class="status-badge ${statusClass}">${result.status} ${this.escapeHtml(result.statusText || '')}</span>` : ''}
           ${result.duration ? `<span class="duration">${result.duration}ms</span>` : ''}
+          <button class="copy-result-btn" data-index="${index}" title="Copy response body">&#x1F4CB;</button>
           <button class="export-single-btn" data-index="${index}" title="Export this result as Markdown">&#x1F4C4;</button>
         </div>
         <div class="result-body">

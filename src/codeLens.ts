@@ -42,6 +42,7 @@ export class HttpCodeLensProvider implements vscode.CodeLensProvider {
             title: '▶ Run',
             command: 'httpVortex.runCurrent',
             tooltip: 'Run this request',
+            arguments: [i],
           })
         );
         
