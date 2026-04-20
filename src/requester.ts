@@ -176,7 +176,7 @@ export async function runAll(
     const resolvedUrl = interpolate(block.url || '', vars);
     const resolvedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries(block.headers || {})) {
-      resolvedHeaders[k] = interpolate(v || '', vars);
+      resolvedHeaders[k] = interpolate(v || '', vars).trim();
     }
     const resolvedBody = block.body ? interpolate(block.body, vars) : null;
 
@@ -296,7 +296,7 @@ export async function runAllParallel(
     const resolvedUrl = interpolate(block.url || '', localVars);
     const resolvedHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries(block.headers || {})) {
-      resolvedHeaders[k] = interpolate(v || '', localVars);
+      resolvedHeaders[k] = interpolate(v || '', localVars).trim();
     }
     const resolvedBody = block.body ? interpolate(block.body, localVars) : null;
 

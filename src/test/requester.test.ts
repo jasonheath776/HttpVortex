@@ -213,3 +213,73 @@ describe('runAll – preVars', () => {
     );
   });
 });
+
+// ─── runAll – header value trimming ───────────────────────────────────────────
+
+describe('runAll – header value trimming', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedAxios.mockResolvedValue(makeSuccessResponse({}));
+  });
+
+  it('trims trailing whitespace from interpolated header values', async () => {
+    const block = makeBlock({
+      headers: { Authorization: 'Bearer {{token}}' },
+    });
+    await runAll([block], { token: 'abc123   ' }, vi.fn(), vi.fn());
+    expect(mockedAxios).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer abc123' }),
+      }),
+    );
+  });
+
+  it('trims trailing newline from interpolated header values', async () => {
+    const block = makeBlock({
+      headers: { Authorization: 'Bearer {{token}}' },
+    });
+    await runAll([block], { token: 'abc123\n' }, vi.fn(), vi.fn());
+    expect(mockedAxios).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer abc123' }),
+      }),
+    );
+  });
+
+  it('trims leading whitespace from interpolated header values', async () => {
+    const block = makeBlock({
+      headers: { 'X-Custom': '{{val}}' },
+    });
+    await runAll([block], { val: '  trimmed' }, vi.fn(), vi.fn());
+    expect(mockedAxios).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Custom': 'trimmed' }),
+      }),
+    );
+  });
+
+  it('trims captured token with whitespace used in next request header', async () => {
+    mockedAxios
+      .mockResolvedValueOnce(makeSuccessResponse({ access_token: 'tok-xyz  \n' }))
+      .mockResolvedValueOnce(makeSuccessResponse({}));
+
+    const loginBlock = makeBlock({
+      name: 'Login',
+      method: 'POST',
+      url: 'https://auth.example.com/token',
+      captures: [{ key: 'token', path: 'data.access_token' }],
+    });
+    const apiBlock = makeBlock({
+      name: 'API',
+      url: 'https://api.example.com/me',
+      headers: { Authorization: 'Bearer {{token}}' },
+    });
+
+    await runAll([loginBlock, apiBlock], {}, vi.fn(), vi.fn());
+    expect(mockedAxios).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer tok-xyz' }),
+      }),
+    );
+  });
+});
