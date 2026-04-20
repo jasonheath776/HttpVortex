@@ -467,6 +467,15 @@ export class ResultsPanel {
             <div class="section-header"><span class="section-label">Request URL</span></div>
             <div class="url-line">${this.escapeHtml(result.method)} ${this.escapeHtml(result.url)}</div>
           </div>
+          ${result.requestHeaders && Object.keys(result.requestHeaders).length > 0 ? `
+            <div class="result-section">
+              <div class="section-header">
+                <span class="section-label">Request Headers</span>
+                <button class="copy-btn" data-text="${this.escapeHtml(JSON.stringify(result.requestHeaders, null, 2))}">Copy</button>
+              </div>
+              <pre>${this.escapeHtml(JSON.stringify(result.requestHeaders, null, 2))}</pre>
+            </div>
+          ` : ''}
           ${result.captures && Object.keys(result.captures).length > 0 ? `
             <div class="result-section">
               <div class="section-header"><span class="section-label">Captured Variables</span></div>

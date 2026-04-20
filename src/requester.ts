@@ -22,6 +22,7 @@ export interface RequestResult {
   status?: number;
   statusText?: string;
   headers?: Record<string, string>;
+  requestHeaders?: Record<string, string>;
   data?: unknown;
   error?: string;
   duration?: number;
@@ -117,6 +118,7 @@ async function sendRequest(
       status: response.status,
       statusText: response.statusText,
       headers: response.headers as Record<string, string>,
+      requestHeaders: headers,
       data: response.data,
       duration,
     };
