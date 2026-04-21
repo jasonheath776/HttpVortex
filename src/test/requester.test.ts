@@ -282,4 +282,78 @@ describe('runAll – header value trimming', () => {
       }),
     );
   });
+
+  it('replaces captured token in Bearer header for next request', async () => {
+    mockedAxios
+      .mockResolvedValueOnce(makeSuccessResponse({ 
+        access_token: 'eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJhY2ZkZFNtIn0.eyJleHAiOjE3NzY3NzUsImlhdCI6MTc3NjcsImp0aSI6IjliZGY3Y2E3In0.N2OgtWkKpj0alYiF4W_8QIz879stcq70sJOlPlMeLcx1k8zw'
+      }))
+      .mockResolvedValueOnce(makeSuccessResponse({ user: { id: 1 } }));
+
+    const loginBlock = makeBlock({
+      name: 'GetToken',
+      method: 'POST',
+      url: 'https://localhost:8080/realms/neon/protocol/openid-connect/token',
+      captures: [{ key: 'token', path: 'data.access_token' }],
+    });
+    const apiBlock = makeBlock({
+      name: 'GetUser',
+      url: 'https://api.example.com/me',
+      headers: { Authorization: 'Bearer {{token}}' },
+    });
+
+    const results: any[] = [];
+    await runAll([loginBlock, apiBlock], {}, (r) => results.push(r), vi.fn());
+    
+    expect(mockedAxios).toHaveBeenCalledTimes(2);
+    // Check the second call (GetUser) has Authorization header
+    const secondCall = mockedAxios.mock.calls[1][0] as any;
+    expect(secondCall.headers.Authorization).toBeDefined();
+    expect(secondCall.headers.Authorization).toContain('Bearer');
+    expect(secondCall.headers.Authorization).not.toContain('{{token}}');
+  });
+});
+
+// ─── runAllParallel – token capture and dependency injection ─────────────────
+
+describe('runAllParallel – token capture & dependency injection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('waits for token capture before running dependent request', async () => {
+    let tokenRequestTime = 0;
+    let apiRequestTime = 0;
+
+    mockedAxios
+      .mockImplementationOnce(async () => {
+        tokenRequestTime = Date.now();
+        return makeSuccessResponse({ access_token: 'captured-token-xyz' });
+      })
+      .mockImplementationOnce(async () => {
+        apiRequestTime = Date.now();
+        return makeSuccessResponse({ user: { id: 1 } });
+      });
+
+    const loginBlock = makeBlock({
+      name: 'GetToken',
+      method: 'POST',
+      url: 'https://localhost:8080/token',
+      captures: [{ key: 'token', path: 'data.access_token' }],
+    });
+    const apiBlock = makeBlock({
+      name: 'GetUser',
+      url: 'https://api.example.com/me',
+      headers: { Authorization: 'Bearer {{token}}' },
+    });
+
+    const { runAllParallel } = await import('../requester');
+    const results: any[] = [];
+    await runAllParallel([loginBlock, apiBlock], {}, (r) => results.push(r), vi.fn(), {}, 3);
+    
+    expect(mockedAxios).toHaveBeenCalledTimes(2);
+    // API request should have the token
+    const apiCall = mockedAxios.mock.calls[1][0] as any;
+    expect(apiCall.headers.Authorization).toBe('Bearer captured-token-xyz');
+  });
 });

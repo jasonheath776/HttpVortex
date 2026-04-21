@@ -29,6 +29,8 @@ export interface AuthCodeFlowConfig {
   clientSecret?: string;
   scope?: string;
   redirectPort: number;
+  /** When true, adds PKCE (RFC 7636) code_challenge/code_verifier to the flow. */
+  usePkce?: boolean;
 }
 
 export interface TokenResponse {
@@ -56,12 +58,21 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig, signal?: Abort
   const redirectUri = `http://localhost:${config.redirectPort}/callback`;
   const state = crypto.randomBytes(20).toString('hex');
 
+  // PKCE (RFC 7636): generate code_verifier and derive code_challenge via S256
+  const codeVerifier = config.usePkce
+    ? crypto.randomBytes(32).toString('base64url')
+    : undefined;
+  const codeChallenge = codeVerifier
+    ? crypto.createHash('sha256').update(codeVerifier).digest('base64url')
+    : undefined;
+
   const authParams = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: redirectUri,
     state,
     ...(config.scope ? { scope: config.scope } : {}),
+    ...(codeChallenge ? { code_challenge: codeChallenge, code_challenge_method: 'S256' } : {}),
   });
 
   const authUrl = `${config.authorizeUrl}?${authParams.toString()}`;
@@ -128,6 +139,7 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig, signal?: Abort
           client_id:   config.clientId,
         };
         if (config.clientSecret) { tokenParams['client_secret'] = config.clientSecret; }
+        if (codeVerifier)        { tokenParams['code_verifier']  = codeVerifier; }
         const body = new URLSearchParams(tokenParams);
 
         const resp = await axios.post<{

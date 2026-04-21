@@ -20,6 +20,8 @@ export interface AuthProfile {
   clientId?: string;
   scope?: string;
   redirectPort?: number;
+  /** authcode only — use PKCE (RFC 7636) instead of a client secret. */
+  usePkce?: boolean;
   // Secret — only populated in memory after loadWithSecrets()
   token?: string;
   password?: string;
@@ -40,6 +42,8 @@ export interface ProfileListItem {
   clientId?: string;
   scope?: string;
   redirectPort?: number;
+  /** authcode only — whether PKCE is used (no client secret required). */
+  usePkce?: boolean;
   /** authcode only — whether a valid access token is currently stored. */
   hasToken?: boolean;
   /** authcode only — whether a refresh token is stored. */
@@ -61,6 +65,8 @@ export interface ProfileSaveInput {
   clientId?: string;
   scope?: string;
   redirectPort?: number;
+  /** authcode only — use PKCE (RFC 7636) instead of a client secret. */
+  usePkce?: boolean;
   /** Generic secret value — stored as token / password / apiKey / clientSecret based on type.
    *  Omit (or pass undefined) when editing to keep the existing secret. */
   secret?: string;
@@ -77,6 +83,7 @@ interface AuthProfileMeta {
   clientId?: string;
   scope?: string;
   redirectPort?: number;
+  usePkce?: boolean;
 }
 
 /** Fields stored in SecretStorage, serialised as JSON. */
@@ -166,7 +173,7 @@ export class AuthProfileManager {
     return this.metas.map(m => ({
       name: m.name, type: m.type, username: m.username, headerName: m.headerName,
       authorizeUrl: m.authorizeUrl, tokenUrl: m.tokenUrl, clientId: m.clientId,
-      scope: m.scope, redirectPort: m.redirectPort,
+      scope: m.scope, redirectPort: m.redirectPort, usePkce: m.usePkce,
     }));
   }
 
@@ -177,7 +184,7 @@ export class AuthProfileManager {
       const item: ProfileListItem = {
         name: m.name, type: m.type, username: m.username, headerName: m.headerName,
         authorizeUrl: m.authorizeUrl, tokenUrl: m.tokenUrl, clientId: m.clientId,
-        scope: m.scope, redirectPort: m.redirectPort,
+        scope: m.scope, redirectPort: m.redirectPort, usePkce: m.usePkce,
         isActive: m.name === this.activeProfileName,
       };
       if (m.type === 'authcode') {
@@ -204,6 +211,7 @@ export class AuthProfileManager {
         username: input.username, headerName: input.headerName,
         authorizeUrl: input.authorizeUrl, tokenUrl: input.tokenUrl,
         clientId: input.clientId, scope: input.scope, redirectPort: input.redirectPort,
+        usePkce: input.usePkce,
       });
       await this.saveMetas();
     } else {
@@ -217,6 +225,7 @@ export class AuthProfileManager {
       meta.clientId = input.clientId;
       meta.scope = input.scope;
       meta.redirectPort = input.redirectPort;
+      meta.usePkce = input.usePkce;
       await this.saveMetas();
     }
 
@@ -259,6 +268,7 @@ export class AuthProfileManager {
         clientSecret: secrets.clientSecret,
         scope:        meta.scope,
         redirectPort: meta.redirectPort ?? 49152,
+        usePkce:      meta.usePkce,
       }, controller.signal);
       const expiry = result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined;
       await this.saveSecrets(name, {

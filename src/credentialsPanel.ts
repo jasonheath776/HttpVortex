@@ -383,7 +383,7 @@ function renderAuthForm() {
   var detailEl = document.getElementById('detail');
   var isNew = state.selected.isNew;
   var p = isNew
-    ? { name: '', type: 'bearer', username: '', headerName: 'X-API-Key', authorizeUrl: '', tokenUrl: '', clientId: '', scope: '', redirectPort: 49152 }
+    ? { name: '', type: 'bearer', username: '', headerName: 'X-API-Key', authorizeUrl: '', tokenUrl: '', clientId: '', scope: '', redirectPort: 49152, usePkce: false }
     : state.profiles[state.selected.index];
 
   var typeOptions = [
@@ -484,6 +484,12 @@ function renderAuthForm() {
         '<div class="form-group">' +
           '<label for="f-client-id">Client ID</label>' +
           '<input type="text" id="f-client-id" value="' + esc(p.clientId || '') + '" placeholder="my-client-id" autocomplete="off">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
+            '<input type="checkbox" id="f-use-pkce"' + (p.usePkce ? ' checked' : '') + '>' +
+            'Use PKCE <span style="opacity:.5;font-weight:normal;text-transform:none">(Proof Key for Code Exchange — public clients, no client secret needed)</span>' +
+          '</label>' +
         '</div>' +
         '<div class="form-group">' +
           '<label for="f-scope">Scope <span style="opacity:.5;font-weight:normal;text-transform:none">(optional)</span></label>' +
@@ -660,6 +666,7 @@ function submitProfileForm() {
   var scope        = (document.getElementById('f-scope')?.value || '').trim();
   var portStr      = document.getElementById('f-redirect-port')?.value || '';
   var redirectPort = portStr ? parseInt(portStr, 10) : undefined;
+  var usePkce      = !!(document.getElementById('f-use-pkce')?.checked);
   var secret       = document.getElementById('f-secret')?.value || '';
   var isNew = state.selected.isNew;
 
@@ -681,6 +688,7 @@ function submitProfileForm() {
       clientId: clientId || undefined,
       scope: scope || undefined,
       redirectPort: (redirectPort && !isNaN(redirectPort)) ? redirectPort : undefined,
+      usePkce: type === 'authcode' ? usePkce : undefined,
       secret: secret || undefined,
     },
     isNew: isNew,
