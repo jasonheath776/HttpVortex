@@ -70,7 +70,8 @@ export function validateHttpDocument(document: vscode.TextDocument, externalVars
       blockNames.add(normalizedName);
     }
 
-    // Collect pre-request @var declarations defined in this block
+    // Variables available in this block include globals, anything established
+    // by earlier blocks during execution, and local declarations in this block.
     const blockVars: Set<string> = new Set(Object.keys(globalVars));
     for (const l of bLines) {
       const t = l.trim();
@@ -216,6 +217,18 @@ export function validateHttpDocument(document: vscode.TextDocument, externalVars
             `Variable '${varName}' is not defined in this file — define it with '@${varName} = value' or check your environment`,
             vscode.DiagnosticSeverity.Warning
           ));
+        }
+      }
+    }
+
+    // After the block is analyzed, its declarations and captures become
+    // available to subsequent blocks during sequential execution.
+    for (const l of bLines) {
+      const t = l.trim();
+      if (t.startsWith('@') && t.includes('=')) {
+        const key = t.slice(1, t.indexOf('=')).trim();
+        if (key) {
+          globalVars[key] = '';
         }
       }
     }

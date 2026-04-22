@@ -372,7 +372,7 @@ async function runAllRequests(context: vscode.ExtensionContext) {
     const envVars = envManager.getAllVariables();
     currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars };
     
-    resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
+    resultsPanel = ResultsPanel.createOrShow(context.extensionUri, true);
     resultsPanel.clearResults();
 
     // Get request options from configuration
@@ -492,7 +492,7 @@ async function runCurrentRequest(context: vscode.ExtensionContext, codeLensLine?
     const profileVars = await authManager.getActiveProfileVariables();
     const envVars = envManager.getAllVariables();
     currentVariables = { ...secrets, ...profileVars, ...envVars, ...globalVars, ...currentVariables };
-    resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
+    resultsPanel = ResultsPanel.createOrShow(context.extensionUri, true);
 
     const config = vscode.workspace.getConfiguration('httpVortex');
     const options: RequestOptions = {
@@ -684,7 +684,7 @@ async function runFromHere(context: vscode.ExtensionContext, startLine: number) 
     const profileVars = await authManager.getActiveProfileVariables();
     const envVarsFrom = envManager.getAllVariables();
     currentVariables = { ...secrets, ...profileVars, ...envVarsFrom, ...globalVars };
-    resultsPanel = ResultsPanel.createOrShow(context.extensionUri);
+    resultsPanel = ResultsPanel.createOrShow(context.extensionUri, true);
     resultsPanel.clearResults();
 
     const config = vscode.workspace.getConfiguration('httpVortex');

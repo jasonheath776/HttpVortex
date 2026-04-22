@@ -2,7 +2,7 @@
   "name": "http-vortex",
   "displayName": "HTTP Vortex Runner",
   "description": "Text-first HTTP runbook editor for VS Code",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "publisher": "jheath",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -20,7 +20,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": ["onLanguage:http"],
+  "activationEvents": [
+    "onLanguage:http"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {

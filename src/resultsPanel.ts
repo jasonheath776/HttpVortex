@@ -11,15 +11,24 @@ export class ResultsPanel {
   private readonly extensionUri: vscode.Uri;
   private disposables: vscode.Disposable[] = [];
   private results: RequestResult[] = [];
+  private webviewReady = false;
 
-  public static createOrShow(extensionUri: vscode.Uri) {
+  public static createOrShow(extensionUri: vscode.Uri, forRun = false) {
     const column = vscode.window.activeTextEditor
       ? vscode.ViewColumn.Beside
       : vscode.ViewColumn.One;
 
     // If we already have a panel, show it
     if (ResultsPanel.currentPanel) {
-      ResultsPanel.currentPanel.panel.reveal(column);
+      if (forRun) {
+        // Re-assign webview.html to force VS Code to repaint the panel on reveal.
+        // Without this, postMessage updates are processed by the DOM but the
+        // compositor does not schedule a new frame, leaving the panel visually blank.
+        ResultsPanel.currentPanel.webviewReady = false;
+        ResultsPanel.currentPanel.panel.webview.html =
+          ResultsPanel.currentPanel.getHtmlContent();
+      }
+      ResultsPanel.currentPanel.panel.reveal(column, forRun);
       return ResultsPanel.currentPanel;
     }
 
@@ -27,7 +36,7 @@ export class ResultsPanel {
     const panel = vscode.window.createWebviewPanel(
       'httpVortexResults',
       'HTTP Results',
-      column,
+      { viewColumn: column, preserveFocus: forRun },
       {
         enableScripts: true,
         retainContextWhenHidden: true,
@@ -42,16 +51,31 @@ export class ResultsPanel {
     this.panel = panel;
     this.extensionUri = extensionUri;
 
-    // Set the webview's initial html content
-    this.update();
+    // Mount the webview document once; later updates patch the DOM via postMessage.
+    this.panel.webview.html = this.getHtmlContent();
 
     // Listen for when the panel is disposed
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+    // Re-send results whenever the panel becomes visible (fixes blank-on-reveal repaint glitch)
+    this.panel.onDidChangeViewState(
+      (e) => {
+        if (e.webviewPanel.visible) {
+          this.update();
+        }
+      },
+      null,
+      this.disposables
+    );
 
     // Handle messages from the webview
     this.panel.webview.onDidReceiveMessage(
       (message) => {
         switch (message.command) {
+          case 'ready':
+            this.webviewReady = true;
+            this.update();
+            break;
           case 'copy':
             vscode.env.clipboard.writeText(message.text);
             vscode.window.showInformationMessage('Copied to clipboard');
@@ -106,7 +130,14 @@ export class ResultsPanel {
   }
 
   private update() {
-    this.panel.webview.html = this.getHtmlContent();
+    if (!this.webviewReady) {
+      return;
+    }
+
+    void this.panel.webview.postMessage({
+      command: 'renderResults',
+      markup: this.getResultsMarkup(),
+    });
   }
 
   private getHtmlContent(): string {
@@ -372,11 +403,20 @@ export class ResultsPanel {
 </head>
 <body>
   <div class="container">
-    ${this.results.length > 0 ? `<div class="export-all-bar"><button class="export-all-btn" id="export-md-btn">&#x1F4C4;&nbsp; Export All as Markdown</button></div>` : ''}
-    ${this.results.length === 0 ? this.getEmptyState() : this.results.map((r, i) => this.renderResult(r, i)).join('')}
+    <div id="results-root">${this.getResultsMarkup()}</div>
   </div>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
+    const root = document.getElementById('results-root');
+
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (message.command === 'renderResults') {
+        root.innerHTML = message.markup;
+      }
+    });
+
+    vscode.postMessage({ command: 'ready' });
 
     document.addEventListener('click', (e) => {
       const target = e.target;
@@ -416,6 +456,17 @@ export class ResultsPanel {
   </script>
 </body>
 </html>`;
+  }
+
+  private getResultsMarkup(): string {
+    if (this.results.length === 0) {
+      return this.getEmptyState();
+    }
+
+    return [
+      '<div class="export-all-bar"><button class="export-all-btn" id="export-md-btn">&#x1F4C4;&nbsp; Export All as Markdown</button></div>',
+      ...this.results.map((r, i) => this.renderResult(r, i)),
+    ].join('');
   }
 
   private getEmptyState(): string {
