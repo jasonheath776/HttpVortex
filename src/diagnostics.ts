@@ -17,13 +17,19 @@ function offsetToLine(text: string, offset: number): number {
 
 /**
  * Validate a single .http document and return an array of diagnostics.
+ * @param externalVars Optional set of variable names known from the active environment / secrets store.
  */
-export function validateHttpDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
+export function validateHttpDocument(document: vscode.TextDocument, externalVars: Set<string> = new Set()): vscode.Diagnostic[] {
   const text = document.getText();
   const diagnostics: vscode.Diagnostic[] = [];
 
   // Collect globally defined variables from preamble (@key = value)
   const globalVars = parseGlobalVars(text);
+
+  // Merge external variables (env file + secrets) so they are never flagged as undefined
+  for (const k of externalVars) {
+    globalVars[k] = '';
+  }
 
   // Check for unmatched {{ ... }} placeholders (missing closing }})
   const unclosed = /\{\{(?![^}]*\}\})/g;
@@ -240,15 +246,20 @@ export function validateHttpDocument(document: vscode.TextDocument): vscode.Diag
 /**
  * Create and register a diagnostics collection that validates HTTP runbook files.
  * Returns the collection so the caller can dispose it on deactivation.
+ * @param getExternalVars Optional callback that returns currently-known external variable names.
  */
-export function registerHttpDiagnostics(context: vscode.ExtensionContext): vscode.DiagnosticCollection {
+export function registerHttpDiagnostics(
+  context: vscode.ExtensionContext,
+  getExternalVars?: () => Set<string>
+): vscode.DiagnosticCollection {
   const collection = vscode.languages.createDiagnosticCollection('httpVortex');
 
   function updateDiagnostics(document: vscode.TextDocument) {
     if (document.languageId !== 'http') {
       return;
     }
-    collection.set(document.uri, validateHttpDocument(document));
+    const externalVars = getExternalVars ? getExternalVars() : new Set<string>();
+    collection.set(document.uri, validateHttpDocument(document, externalVars));
   }
 
   // Validate all open http documents on startup

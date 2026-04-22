@@ -146,8 +146,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Initial context check
   updateHttpFileContext();
 
-  // Register syntax diagnostics
-  registerHttpDiagnostics(context);
+  // Register syntax diagnostics — include env and secret names so they aren't flagged as undefined
+  registerHttpDiagnostics(context, () => {
+    const vars = new Set<string>(Object.keys(envManager.getActiveEnvironment()));
+    for (const name of secretsManager.getSecretNames()) {
+      vars.add(name);
+    }
+    return vars;
+  });
 
   // Register snippets provider
   registerSnippetsProvider(context);
