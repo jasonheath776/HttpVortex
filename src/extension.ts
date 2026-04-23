@@ -146,10 +146,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Initial context check
   updateHttpFileContext();
 
-  // Register syntax diagnostics — include env and secret names so they aren't flagged as undefined
+  // Register syntax diagnostics — include env, secret, and active auth profile variable names
+  // so they aren't flagged as undefined
   registerHttpDiagnostics(context, () => {
     const vars = new Set<string>(Object.keys(envManager.getActiveEnvironment()));
     for (const name of secretsManager.getSecretNames()) {
+      vars.add(name);
+    }
+    for (const name of authManager.getActiveProfileVariableNames()) {
       vars.add(name);
     }
     return vars;

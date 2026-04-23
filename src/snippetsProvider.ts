@@ -152,6 +152,101 @@ export class HttpSnippetsProvider implements vscode.CompletionItemProvider {
       ],
     },
     {
+      group: 'MIME Types',
+      items: [
+        {
+          label: 'text/plain',
+          hint: 'Plain text',
+          detail: 'Content-Type: text/plain',
+          snippet: 'Content-Type: text/plain',
+        },
+        {
+          label: 'text/html',
+          hint: 'HTML content',
+          detail: 'Content-Type: text/html',
+          snippet: 'Content-Type: text/html',
+        },
+        {
+          label: 'text/csv',
+          hint: 'CSV data',
+          detail: 'Content-Type: text/csv',
+          snippet: 'Content-Type: text/csv',
+        },
+        {
+          label: 'application/json',
+          hint: 'JSON data',
+          detail: 'Content-Type: application/json',
+          snippet: 'Content-Type: application/json',
+        },
+        {
+          label: 'application/xml',
+          hint: 'XML data',
+          detail: 'Content-Type: application/xml',
+          snippet: 'Content-Type: application/xml',
+        },
+        {
+          label: 'application/x-www-form-urlencoded',
+          hint: 'URL-encoded form data',
+          detail: 'Content-Type: application/x-www-form-urlencoded',
+          snippet: 'Content-Type: application/x-www-form-urlencoded',
+        },
+        {
+          label: 'multipart/form-data',
+          hint: 'Multipart form data (file uploads)',
+          detail: 'Content-Type: multipart/form-data',
+          snippet: 'Content-Type: multipart/form-data',
+        },
+        {
+          label: 'application/octet-stream',
+          hint: 'Binary / arbitrary data',
+          detail: 'Content-Type: application/octet-stream',
+          snippet: 'Content-Type: application/octet-stream',
+        },
+        {
+          label: 'application/pdf',
+          hint: 'PDF document',
+          detail: 'Content-Type: application/pdf',
+          snippet: 'Content-Type: application/pdf',
+        },
+        {
+          label: 'application/graphql',
+          hint: 'GraphQL query body',
+          detail: 'Content-Type: application/graphql',
+          snippet: 'Content-Type: application/graphql',
+        },
+        {
+          label: 'image/png',
+          hint: 'PNG image',
+          detail: 'Content-Type: image/png',
+          snippet: 'Content-Type: image/png',
+        },
+        {
+          label: 'image/jpeg',
+          hint: 'JPEG image',
+          detail: 'Content-Type: image/jpeg',
+          snippet: 'Content-Type: image/jpeg',
+        },
+        {
+          label: 'Accept: */*',
+          hint: 'Accept any response type',
+          detail: 'Accept: */*',
+          snippet: 'Accept: */*',
+        },
+        {
+          label: 'Accept: text/plain',
+          hint: 'Accept plain text response',
+          detail: 'Accept: text/plain',
+          snippet: 'Accept: text/plain',
+        },
+        {
+          label: 'Accept: text/html',
+          hint: 'Accept HTML response',
+          detail: 'Accept: text/html',
+          snippet: 'Accept: text/html',
+        },
+      ],
+    },
+    {
       group: 'Query Parameters',
       items: [
         {

@@ -82,6 +82,7 @@ export class CredentialsPanel {
           if (err) {
             this.post({ type: 'error', message: err });
           } else {
+            this.post({ type: 'toast', message: 'Profile saved.' });
             this.post({ type: 'profilesUpdated', profiles: await this.authManager.getProfileListWithStatus() });
           }
           break;
@@ -98,6 +99,7 @@ export class CredentialsPanel {
           if (err) {
             this.post({ type: 'error', message: err });
           } else {
+            this.post({ type: 'toast', message: 'Secret saved.' });
             this.post({ type: 'secretsUpdated', secretNames: this.secretsManager.getSecretNames() });
           }
           break;
@@ -246,6 +248,8 @@ window.addEventListener('message', function(event) {
   } else if (msg.type === 'error') {
     state.error = msg.message;
     renderDetail();
+  } else if (msg.type === 'toast') {
+    showToast(msg.message);
   } else if (msg.type === 'authCodeFlowResult') {
     state.signingIn = false;
     if (state.cancelled) {
@@ -267,6 +271,15 @@ window.addEventListener('message', function(event) {
 });
 
 vscode.postMessage({ type: 'ready' });
+
+var _toastTimer = null;
+function showToast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2500);
+}
 
 function esc(str) {
   return String(str)
@@ -1096,6 +1109,29 @@ input[type="number"]:focus { border-color: var(--vscode-focusBorder, #4db6f5); }
 }
 .btn-signin:hover:not(:disabled) { background: #ffc07a; }
 .btn-signin:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Toast ───────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--vscode-notifications-background, var(--vscode-editor-background));
+  color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s, transform 0.18s;
+  z-index: 9999;
+  white-space: nowrap;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 `;
 
   /* ── HTML ─────────────────────────────────────────────────────────────── */
@@ -1128,6 +1164,7 @@ input[type="number"]:focus { border-color: var(--vscode-focusBorder, #4db6f5); }
       <div class="detail" id="detail"></div>
     </div>
   </div>
+  <div id="toast"></div>
   <script nonce="${nonce}">${script}</script>
 </body>
 </html>`;

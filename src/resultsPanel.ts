@@ -57,12 +57,17 @@ export class ResultsPanel {
     // Listen for when the panel is disposed
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 
-    // Re-send results whenever the panel becomes visible (fixes blank-on-reveal repaint glitch)
+    // Re-send results when the panel transitions from hidden → visible (fixes blank-on-reveal
+    // repaint glitch). Intentionally NOT firing on focus-only changes so that clicking a card
+    // header doesn't trigger an innerHTML replacement that collapses the just-expanded card.
+    let wasVisible = false;
     this.panel.onDidChangeViewState(
       (e) => {
-        if (e.webviewPanel.visible) {
+        const isVisible = e.webviewPanel.visible;
+        if (isVisible && !wasVisible) {
           this.update();
         }
+        wasVisible = isVisible;
       },
       null,
       this.disposables

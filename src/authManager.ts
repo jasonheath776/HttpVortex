@@ -489,6 +489,26 @@ export class AuthProfileManager {
    * If the active profile has an expired authcode token within 60 s of expiry,
    * callers should trigger a refresh first via startAuthCodeFlow().
    */
+  /** Synchronously returns the variable names that the active profile will inject at run-time.
+   * Used by the diagnostics provider so those names aren't flagged as undefined. */
+  getActiveProfileVariableNames(): string[] {
+    if (!this.activeProfileName) { return []; }
+    const meta = this.metas.find(m => m.name === this.activeProfileName);
+    if (!meta) { return []; }
+    switch (meta.type) {
+      case 'bearer':
+      case 'oauth2':
+      case 'authcode':
+        return ['token'];
+      case 'basic':
+        return ['password'];
+      case 'apikey':
+        return ['apiKey'];
+      default:
+        return [];
+    }
+  }
+
   async getActiveProfileVariables(): Promise<Record<string, string>> {
     if (!this.activeProfileName) { return {}; }
     const meta = this.metas.find(m => m.name === this.activeProfileName);
