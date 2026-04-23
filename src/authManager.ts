@@ -260,6 +260,7 @@ export class AuthProfileManager {
     const secrets = await this.loadSecrets(name);
     const controller = new AbortController();
     this._flowAbort = controller;
+    const validateSSL = vscode.workspace.getConfiguration('httpVortex').get('validateSSL', true);
     try {
       const result = await runAuthCodeFlow({
         authorizeUrl: meta.authorizeUrl,
@@ -269,6 +270,7 @@ export class AuthProfileManager {
         scope:        meta.scope,
         redirectPort: meta.redirectPort ?? 49152,
         usePkce:      meta.usePkce,
+        validateSSL,
       }, controller.signal);
       const expiry = result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined;
       await this.saveSecrets(name, {
@@ -308,8 +310,9 @@ export class AuthProfileManager {
       return 'No refresh token stored. Please sign in first.';
     }
     try {
+      const validateSSL = vscode.workspace.getConfiguration('httpVortex').get('validateSSL', true);
       const result = await runRefreshTokenFlow(
-        { tokenUrl: meta.tokenUrl, clientId: meta.clientId, clientSecret: secrets.clientSecret },
+        { tokenUrl: meta.tokenUrl, clientId: meta.clientId, clientSecret: secrets.clientSecret, validateSSL },
         secrets.refreshToken,
       );
       const expiry = result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined;

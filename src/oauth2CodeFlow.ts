@@ -19,8 +19,9 @@ import * as vscode from 'vscode';
 import axios from 'axios';
 
 // Shared agents — bypass VS Code's patched http.globalAgent / https.globalAgent.
-const _httpAgent  = new http.Agent();
-const _httpsAgent = new https.Agent();
+const _httpAgent          = new http.Agent();
+const _httpsAgent         = new https.Agent({ rejectUnauthorized: true });
+const _httpsAgentNoVerify = new https.Agent({ rejectUnauthorized: false });
 
 export interface AuthCodeFlowConfig {
   authorizeUrl: string;
@@ -31,6 +32,8 @@ export interface AuthCodeFlowConfig {
   redirectPort: number;
   /** When true, adds PKCE (RFC 7636) code_challenge/code_verifier to the flow. */
   usePkce?: boolean;
+  /** When false, skips TLS certificate validation (useful for localhost dev certs). */
+  validateSSL?: boolean;
 }
 
 export interface TokenResponse {
@@ -151,7 +154,7 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig, signal?: Abort
           timeout: 30_000,
           proxy: false,
           httpAgent: _httpAgent,
-          httpsAgent: _httpsAgent,
+          httpsAgent: config.validateSSL !== false ? _httpsAgent : _httpsAgentNoVerify,
         });
 
         finish(undefined, {
@@ -193,7 +196,7 @@ export async function runAuthCodeFlow(config: AuthCodeFlowConfig, signal?: Abort
  * the browser again.  Throws on any error.
  */
 export async function runRefreshTokenFlow(
-  config: Pick<AuthCodeFlowConfig, 'tokenUrl' | 'clientId' | 'clientSecret'>,
+  config: Pick<AuthCodeFlowConfig, 'tokenUrl' | 'clientId' | 'clientSecret' | 'validateSSL'>,
   refreshToken: string,
 ): Promise<TokenResponse> {
   const tokenParams: Record<string, string> = {
@@ -213,7 +216,7 @@ export async function runRefreshTokenFlow(
       timeout: 30_000,
       proxy: false,
       httpAgent: _httpAgent,
-      httpsAgent: _httpsAgent,
+      httpsAgent: config.validateSSL !== false ? _httpsAgent : _httpsAgentNoVerify,
     });
     return {
       accessToken:  resp.data.access_token,
